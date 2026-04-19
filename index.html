@@ -1,150 +1,488 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Лабіринт із пастками</title>
+<title>Labyrinth</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    padding: 10px;
-    background: #f5f5f7;
-    color: #111;
-    display: flex;
-    justify-content: center;
-    min-height: 100vh;
-    overscroll-behavior: none;
-    user-select: none;
-    -webkit-user-select: none;
+    padding: 10px; background: #f5f5f7; color: #111;
+    display: flex; justify-content: center; min-height: 100vh;
+    overscroll-behavior: none; user-select: none; -webkit-user-select: none;
   }
-  #app {
-    max-width: 460px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-  h1 {
-    font-size: 22px;
-    margin: 4px 0 0;
-    font-weight: 800;
-    text-align: center;
-  }
-  #hud {
-    display: flex;
-    gap: 14px;
-    font-size: 13px;
-    color: #555;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+  #app { max-width: 500px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  h1 { font-size: 22px; margin: 4px 0 0; font-weight: 800; text-align: center; }
+  #hud { display: flex; gap: 14px; font-size: 13px; color: #555; flex-wrap: wrap; justify-content: center; }
   #hud span { font-weight: 700; color: #111; }
-  canvas {
-    background: #fff;
-    touch-action: none;
-    max-width: 100%;
-    height: auto;
-    display: block;
-  }
-  #inventory {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: #fff;
-    border: 1px solid #d0d0d0;
-    border-radius: 8px;
-    font-size: 14px;
-  }
-  #invIcon {
-    display: inline-block;
-    min-width: 22px;
-    font-size: 18px;
-    text-align: center;
-  }
-  #controls {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  button {
-    padding: 8px 10px;
-    font-size: 12px;
-    border: 1px solid #c0c0c0;
-    background: #fff;
-    border-radius: 6px;
-    cursor: pointer;
-    touch-action: manipulation;
-    font-weight: 600;
-    color: #222;
-  }
-  button.active { background: #111; color: #fff; border-color: #111; }
+  #objective { padding: 6px 12px; background: #fff8e1; border: 1px solid #ffd54f; border-radius: 6px; font-size: 13px; text-align: center; max-width: 460px; line-height: 1.35; }
+  #tips { display: flex; flex-direction: column; gap: 4px; max-width: 460px; width: 100%; }
+  .tip { padding: 5px 10px; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; font-size: 12px; line-height: 1.3; }
+  canvas { background: #fff; touch-action: none; max-width: 100%; height: auto; display: block; }
+  #inventory { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  #invLabel { font-size: 11px; color: #888; }
+  #invSlots { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: 460px; }
+  .slot { width: 40px; height: 40px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; position: relative; }
+  .slot.empty { background: #f0f0f0; border-style: dashed; color: #bbb; }
+  .slot.selected { border: 2px solid #2874e7; box-shadow: 0 0 0 2px rgba(40,116,231,0.2); }
+  .slot .idx { position: absolute; top: 0; left: 2px; font-size: 9px; color: #999; }
+  #controls { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  button { padding: 7px 10px; font-size: 12px; border: 1px solid #c0c0c0; background: #fff; border-radius: 6px; cursor: pointer; touch-action: manipulation; font-weight: 600; color: #222; }
   button:active { transform: scale(0.96); }
+  #ctrlBtn { background: #fff; border: 1px solid #111; color: #111; min-width: 120px; }
   #useBtn { background: #2874e7; color: #fff; border-color: #2874e7; }
+  #infoBtn { background: #fff; border-color: #888; }
   #godBtn { background: #fff; border: 1px dashed #888; color: #666; }
   #godBtn.active { background: #f39c12; color: #fff; border: 1px solid #f39c12; border-style: solid; }
   #restartBtn { background: #27ae60; color: #fff; border: none; padding: 10px 18px; font-size: 14px; margin-top: 4px; }
-  #message {
-    min-height: 20px;
-    font-size: 13px;
-    text-align: center;
-    color: #c0392b;
-    font-weight: 600;
-    padding: 0 8px;
+  #message { min-height: 20px; font-size: 13px; text-align: center; color: #c0392b; font-weight: 600; padding: 0 8px; }
+  #modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
+  #modal.open { display: flex; }
+  #modalBox { background: #fff; max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 10px; padding: 16px 18px; position: relative; }
+  #modalBox h2 { margin: 0 0 10px; font-size: 18px; }
+  #modalBox h3 { margin: 14px 0 6px; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+  #modalClose { position: absolute; top: 8px; right: 8px; border: none; background: transparent; font-size: 22px; cursor: pointer; }
+  .info-row { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-size: 13px; }
+  .info-icon { flex: 0 0 28px; font-size: 20px; text-align: center; line-height: 1.2; }
+  .info-body .info-title { font-weight: 700; margin-bottom: 2px; }
+  .info-body .info-desc { color: #555; line-height: 1.4; }
+  .info-empty { color: #999; font-size: 12px; font-style: italic; padding: 6px 0; }
+  .shop-choices { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .swap-choices { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .shop-choice { flex: 1 1 120px; background: #fafafa; border: 2px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; cursor: pointer; }
+  .shop-choice:hover { border-color: #2874e7; }
+  .shop-emoji { font-size: 32px; }
+  .shop-name { font-weight: 700; margin-top: 4px; font-size: 13px; }
+  .shop-desc { font-size: 11px; color: #666; margin-top: 4px; line-height: 1.3; }
+  .shop-skip, .swap-skip { margin-top: 10px; padding: 8px 12px; background: #eee; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; width: 100%; }
+  .swap-choice {
+    width: 56px; height: 70px;
+    background: #fafafa; border: 2px solid #ddd; border-radius: 6px;
+    padding: 4px; text-align: center; cursor: pointer;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px;
   }
-  #legend {
-    font-size: 10px;
-    color: #888;
-    text-align: center;
-    max-width: 420px;
-    line-height: 1.4;
-  }
-  .round-flash {
-    animation: flash 0.6s ease-out;
-  }
-  @keyframes flash {
-    0% { background: #fff9c4; }
-    100% { background: #fff; }
-  }
+  .swap-choice:hover { border-color: #2874e7; }
+  .swap-emoji { font-size: 22px; line-height: 1; }
+  .swap-name { font-size: 10px; color: #333; line-height: 1.1; }
+  .swap-new { background: #fff3cd; border-color: #ffc107; }
+  .swap-section-label { font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 2px; font-weight: 600; }
+  @keyframes flash { 0% { background: #fff9c4; } 100% { background: #fff; } }
+  .round-flash { animation: flash 0.6s ease-out; }
 </style>
 </head>
 <body>
 <div id="app">
-  <h1>Лабіринт із пастками</h1>
+  <h1 id="gameTitle">Labyrinth</h1>
   <div id="hud">
-    <div>Кроків: <span id="moves">0</span></div>
-    <div>Раунд: <span id="round">1</span></div>
-    <div>Вбито: <span id="killed">0</span></div>
+    <div><span id="lblMoves">Moves</span>: <span id="moves">0</span></div>
+    <div><span id="lblRound">Round</span>: <span id="round">1</span></div>
+    <div><span id="lblKilled">Killed</span>: <span id="killed">0</span></div>
   </div>
+  <div id="tips"></div>
   <canvas id="canvas"></canvas>
   <div id="inventory">
-    Інвентар: <span id="invIcon">—</span><span id="invName">порожньо</span>
+    <div id="invLabel"></div>
+    <div id="invSlots"></div>
   </div>
   <div id="controls">
-    <button data-ctrl="arrows" class="active">⬆️ Стрілки</button>
-    <button data-ctrl="wasd">WASD</button>
-    <button data-ctrl="swipe">Свайп</button>
-    <button data-ctrl="tilt">Нахил</button>
-    <button id="useBtn">Використати ⏎</button>
-    <button id="godBtn" title="Режим тесту: ігнорує смерть від ворогів, ям і мін">🛡 Невразливість: OFF</button>
+    <button id="ctrlBtn"></button>
+    <button id="useBtn"></button>
+    <button id="infoBtn"></button>
+    <button id="godBtn"></button>
   </div>
   <div id="message"></div>
-  <button id="restartBtn" style="display:none">Нова гра</button>
-  <div id="legend">🔪 ніж (вбиває ворога) · ⏰ годинник (стоп на 3 ходи) · ⌁ тільда (ламає стіну) · 💣 міна · 🎲 рандом · сині кола = телепорт · чорні квадрати = ями</div>
+  <button id="restartBtn" style="display:none"></button>
+</div>
+
+<div id="modal">
+  <div id="modalBox">
+    <button id="modalClose">×</button>
+    <h2 id="modalTitle"></h2>
+    <div id="modalContent"></div>
+  </div>
 </div>
 
 <script>
 'use strict';
+
+// =================== I18N ===================
+const I18N = {
+  en: {
+    title: 'Labyrinth of Traps', moves: 'Moves', round: 'Round', killed: 'Killed',
+    invLabel: 'Inventory (1–9 to select, click works too)',
+    invLabelAmulet: (n, th) => `Inventory · 🔮 ×${n} → regen every ${th} steps`,
+    use: 'Use ⏎', info: '📖 Info', godOn: '🛡 Godmode: ON', godOff: '🛡 Godmode: OFF',
+    newGame: 'New game', help: 'Help',
+    ctrlArrows: '⬆️ Arrows', ctrlWasd: '⌨ WASD', ctrlSwipe: '👆 Swipe', ctrlTilt: '📱 Tilt',
+    enemies: 'Enemies', items: 'Items', tiles: 'Tiles', controls: 'Controls',
+    notSeen: 'Not encountered yet.', noItems: "No items have appeared yet.", noTiles: 'No special tiles yet.',
+    roundObjective: (r) => `Round ${r}`,
+    controlsInfo1: 'Cycle button switches: arrows → WASD → swipe → tilt. Select slot: 1–9. Use: Space/Enter.',
+    controlsInfo2: 'Phone: swipe or tilt. Double-tap — use. Tilt only works on HTTPS.',
+    roundCompleted: (r) => `🏁 Round ${r} completed!`,
+    pickedUp: (n) => `Picked up: ${n}`,
+    invFull: 'Inventory full!',
+    slotGained: '🎒 Inventory expanded! +1 slot',
+    gotKey: '🔑 Key found! Lock on exit is gone',
+    selectedEmpty: 'Selected slot is empty',
+    knifeAutoHint: 'Knife only works when SELECTED in inventory (in hand)',
+    shieldAutoHint: 'Shield only protects when SELECTED in inventory (in hand)',
+    superknifeAutoHint: 'Super-knife only works when SELECTED in inventory',
+    clockActivated: '⏰ Time frozen for 3 turns!',
+    tildePrompt: '⌁ Choose direction to break a wall',
+    tildeNoWall: 'No wall here',
+    tildeBroken: '⌁ Wall broken!',
+    tildeOuterNo: "Can't break outer wall",
+    crossbowPrompt: '🏹 Choose direction to shoot',
+    crossbowHitBoss: '🏹 Shot hit boss: -1 HP',
+    crossbowKillBoss: '🏹 Boss killed by crossbow!',
+    crossbowKill: '🏹 Shot on target!',
+    crossbowMiss: '🏹 Shot into nothing',
+    mineHere: 'There is already a mine here',
+    minePlaced: '💣 Mine placed — step off it!',
+    stealthminePlaced: '🧨 Stealth mine placed — invisible to enemies!',
+    randomUsed: '🎲 Maze regenerated!',
+    amuletUsed: '🔮 Amulet used — maze regenerated',
+    restartUsed: '🔁 Restarting round!',
+    stuckInMud: '🟫 Stuck in mud for a turn',
+    stuckInMudEnemy: '🟫 Enemy stuck in mud',
+    exitLocked: '🔒 Exit is locked, find 🔑',
+    exitBossAlive: '👹 Defeat the boss before leaving!',
+    killedByBoss: '💀 Boss crushed you!',
+    bossHitNeedMore: '🍴 Hit on boss! Need another',
+    bossHitMine: '💥 Mine hit boss: -1 HP',
+    bossKilledMine: '💥 Boss killed by mine!',
+    bossKilledPit: '🕳 Boss fell into pit!',
+    bossHitPit: '🕳 Boss hurt by pit: -1 HP',
+    bossKilledKnife: '🍴 Boss killed!',
+    enemyKilledKnife: '🔪 Enemy killed with knife!',
+    enemyRanIntoKnife: '🔪 Enemy ran into knife!',
+    superKilledEnemy: '🍴 Super-knife killed enemy',
+    shieldBlocked: '🛡 Shield blocked the attack!',
+    shieldBlockedMine: '🛡 Shield absorbed the mine!',
+    shieldBlockedPit: '🛡 Shield saved you from the pit!',
+    enemyShieldBroke: (name) => `🛡 ${name}'s shield broke`,
+    invincibleKilled: (thing) => `🛡 ${thing} destroyed (test)`,
+    invincibleMine: '🛡 Mine defused (test)',
+    invinciblePit: '🛡 Walked through pit (test)',
+    diedMine: '💥 You died on a mine!',
+    diedPit: '🕳 You fell into a pit!',
+    diedEnemy: '💀 Enemy caught you!',
+    diedSniper: '🎯 Sniper shot you!',
+    enemyToPit: 'Enemy fell in pit! 🕳',
+    enemyToMine: '💥 Enemy died on a mine!',
+    enemyBrokeWall: '⌁ Enemy broke a wall!',
+    enemyUsedRandom: '🎲 Enemy regenerated the maze!',
+    enemyDropped: (itemName) => `💼 Enemy dropped: ${itemName}`,
+    godmodeOn: '🛡 Test mode enabled',
+    godmodeOff: 'Test mode disabled',
+    tiltHttpsRequired: '⚠ Tilt only works on HTTPS or localhost',
+    tiltPermDenied: 'Tilt sensor permission denied',
+    tiltPrompt: 'Tilt your device to move',
+    tiltNotResponding: '⚠ Tilt sensor not responding',
+    swipeHint: 'Swipe — move, double-tap — use',
+    wasdHint: 'WASD — move, Space/Enter — use, 1–9 — slot',
+    arrowsHint: 'Arrows — move, Space/Enter — use, 1–9 — slot',
+    roundStart: (r) => `Round ${r}`,
+    objectiveFallback: '🎯 Pass the round. Difficulty grows.',
+    newThisRound: 'New this round:',
+    shopTitle: (r) => `Shop after round ${r}`,
+    shopPrompt: 'Pick one item. Then next round starts:',
+    shopSkip: 'Skip',
+    shopReceived: (n) => `🛒 Received: ${n}`,
+    swapTitle: 'Inventory full — replace?',
+    swapPrompt: 'Pick a slot to replace, or skip.',
+    swapMandatory: 'This item is required. Pick a slot to replace.',
+    replaceSlot: 'Replace slot',
+    swapSkip: 'Leave item on the map',
+    newItem: 'NEW',
+    infoTitle: 'Help',
+    hint_knife: '🔪 Knife — auto-kills enemy on contact, but ONLY when selected in inventory',
+    hint_shield: '🛡 Shield — absorbs one death, but ONLY when selected in inventory',
+    hint_superknife: '🍴 Super-knife — kills regular enemies without being spent (selected only). Boss needs 2 hits, consumed.',
+    hint_clock: '⏰ Clock — use to freeze enemies and maze for 3 turns',
+    hint_tilde: '⌁ Tilde — use, then press direction to break one wall',
+    hint_mine: '💣 Mine — use to place. Kills anything that steps on it. You can step off yours safely.',
+    hint_stealthmine: '🧨 Stealth mine — like regular mine, but enemies CANNOT see it and walk onto it',
+    hint_random: '🎲 Random — instantly regenerates the maze',
+    hint_slot: '🎒 Backpack — +1 inventory slot',
+    hint_crossbow: '🏹 Crossbow — use, then press direction, kills first enemy on straight line',
+    hint_amulet: '🔮 Amulet — while held, each one delays maze regeneration by +1 turn (so regen happens every 3+N turns instead of 3). Use it to regen immediately and consume one.',
+    hint_restart: '🔁 Restart — restarts current round with new map (inventory kept)',
+    hint_key: '🔑 Key — unlocks exit on locked rounds',
+    hint_regular: '🟥 Regular enemy — chases you via BFS',
+    hint_patrol: '🟧 Patrol — walks back and forth, ignores you',
+    hint_sniper: '🎯 Sniper — stands still, kills you on line of sight without walls',
+    hint_ghost: '👻 Ghost — walks through walls, but every other turn',
+    hint_boss: '👹 Boss — 2 HP, needs super-knife or mine/crossbow/pit. Exit is locked until killed.',
+    hint_pit: '⬛ Pit — kills who steps on it. Enemies see and avoid.',
+    hint_ice: '🧊 Ice — slide to the nearest wall in same direction',
+    hint_mud: '🟫 Mud — who steps on it loses next turn (player and enemies)',
+    hint_conveyor: '➡️ Conveyor — pushes you one extra cell after move',
+    hint_lock: '🔒 Lock — exit is locked until you get the key',
+    hint_fog: '🌫 Fog of war — only 5 cells around you are visible'
+  },
+  ru: {
+    title: 'Лабиринт с ловушками', moves: 'Шагов', round: 'Раунд', killed: 'Убито',
+    invLabel: 'Инвентарь (1–9 — выбор, клик тоже)',
+    invLabelAmulet: (n, th) => `Инвентарь · 🔮 ×${n} → регенерация каждые ${th} ходов`,
+    use: 'Использовать ⏎', info: '📖 Справка', godOn: '🛡 Неуязвимость: ON', godOff: '🛡 Неуязвимость: OFF',
+    newGame: 'Новая игра', help: 'Справка',
+    ctrlArrows: '⬆️ Стрелки', ctrlWasd: '⌨ WASD', ctrlSwipe: '👆 Свайп', ctrlTilt: '📱 Наклон',
+    enemies: 'Враги', items: 'Предметы', tiles: 'Тайлы', controls: 'Управление',
+    notSeen: 'Ещё не встречались.', noItems: 'Предметы ещё не появлялись.', noTiles: 'Особых тайлов ещё нет.',
+    roundObjective: (r) => `Раунд ${r}`,
+    controlsInfo1: 'Кнопка циклически переключает: стрелки → WASD → свайп → наклон. Слот: 1–9. Использовать: пробел/Enter.',
+    controlsInfo2: 'Телефон: свайп или наклон. Двойной тап — использовать. Наклон работает только на HTTPS.',
+    roundCompleted: (r) => `🏁 Раунд ${r} пройден!`,
+    pickedUp: (n) => `Подобрано: ${n}`,
+    invFull: 'Инвентарь полон!',
+    slotGained: '🎒 Инвентарь увеличен! +1 слот',
+    gotKey: '🔑 Ключ найден! Замок на выходе снят',
+    selectedEmpty: 'Выбранный слот пустой',
+    knifeAutoHint: 'Нож работает автоматически, но ТОЛЬКО если выбран в инвентаре (в руках)',
+    shieldAutoHint: 'Щит защищает, но ТОЛЬКО если выбран в инвентаре (в руках)',
+    superknifeAutoHint: 'Супер-нож работает, только если выбран в инвентаре',
+    clockActivated: '⏰ Время остановлено на 3 хода!',
+    tildePrompt: '⌁ Выбери направление для разрушения стены',
+    tildeNoWall: 'Здесь нет стены',
+    tildeBroken: '⌁ Стена разрушена!',
+    tildeOuterNo: 'Нельзя ломать внешнюю стену',
+    crossbowPrompt: '🏹 Выбери направление выстрела',
+    crossbowHitBoss: '🏹 Выстрел по боссу: -1 HP',
+    crossbowKillBoss: '🏹 Босс убит арбалетом!',
+    crossbowKill: '🏹 Выстрел в цель!',
+    crossbowMiss: '🏹 Выстрел в никуда',
+    mineHere: 'Здесь уже мина',
+    minePlaced: '💣 Мина установлена — сойди с неё!',
+    stealthminePlaced: '🧨 Невидимая мина установлена — враги её не видят!',
+    randomUsed: '🎲 Лабиринт перегенерирован!',
+    amuletUsed: '🔮 Амулет использован — лабиринт изменён',
+    restartUsed: '🔁 Начинаем раунд заново!',
+    stuckInMud: '🟫 Ты застрял в грязи на ход',
+    stuckInMudEnemy: '🟫 Враг застрял в грязи',
+    exitLocked: '🔒 Выход закрыт, найди 🔑',
+    exitBossAlive: '👹 Сначала убей босса!',
+    killedByBoss: '💀 Босс тебя раздавил!',
+    bossHitNeedMore: '🍴 Удар по боссу! Нужен ещё один',
+    bossHitMine: '💥 Мина попала в босса: -1 HP',
+    bossKilledMine: '💥 Босс убит миной!',
+    bossKilledPit: '🕳 Босс упал в яму!',
+    bossHitPit: '🕳 Босс ранен ямой: -1 HP',
+    bossKilledKnife: '🍴 Босс убит!',
+    enemyKilledKnife: '🔪 Враг убит ножом!',
+    enemyRanIntoKnife: '🔪 Враг налетел на нож!',
+    superKilledEnemy: '🍴 Супер-нож убил врага',
+    shieldBlocked: '🛡 Щит поглотил атаку!',
+    shieldBlockedMine: '🛡 Щит поглотил взрыв мины!',
+    shieldBlockedPit: '🛡 Щит спас от ямы!',
+    enemyShieldBroke: (name) => `🛡 Щит у ${name} сломан`,
+    invincibleKilled: (thing) => `🛡 ${thing} уничтожен (тест)`,
+    invincibleMine: '🛡 Мина обезврежена (тест)',
+    invinciblePit: '🛡 Прошёл через яму (тест)',
+    diedMine: '💥 Ты подорвался на мине!',
+    diedPit: '🕳 Ты упал в яму!',
+    diedEnemy: '💀 Враг тебя поймал!',
+    diedSniper: '🎯 Снайпер тебя застрелил!',
+    enemyToPit: 'Враг упал в яму! 🕳',
+    enemyToMine: '💥 Враг подорвался на мине!',
+    enemyBrokeWall: '⌁ Враг сломал стену!',
+    enemyUsedRandom: '🎲 Враг перегенерировал лабиринт!',
+    enemyDropped: (itemName) => `💼 Враг выронил: ${itemName}`,
+    godmodeOn: '🛡 Тестовый режим включён',
+    godmodeOff: 'Тестовый режим выключен',
+    tiltHttpsRequired: '⚠ Наклон работает только на HTTPS или localhost',
+    tiltPermDenied: 'Доступ к датчику наклона отклонён',
+    tiltPrompt: 'Наклоняй устройство для движения',
+    tiltNotResponding: '⚠ Датчик наклона не отвечает',
+    swipeHint: 'Свайп — движение, двойной тап — использовать',
+    wasdHint: 'WASD — движение, Пробел/Enter — использовать, 1–9 — слот',
+    arrowsHint: 'Стрелки — движение, Пробел/Enter — использовать, 1–9 — слот',
+    roundStart: (r) => `Раунд ${r}`,
+    objectiveFallback: '🎯 Пройди раунд. Сложность растёт.',
+    newThisRound: 'Новое в этом раунде:',
+    shopTitle: (r) => `Магазин после раунда ${r}`,
+    shopPrompt: 'Выбери один предмет. Затем начнётся следующий раунд:',
+    shopSkip: 'Пропустить',
+    shopReceived: (n) => `🛒 Получено: ${n}`,
+    swapTitle: 'Инвентарь полон — заменить?',
+    swapPrompt: 'Выбери слот для замены или пропусти.',
+    swapMandatory: 'Этот предмет обязателен. Выбери слот для замены.',
+    replaceSlot: 'Заменить слот',
+    swapSkip: 'Оставить предмет на карте',
+    newItem: 'НОВОЕ',
+    infoTitle: 'Справка',
+    hint_knife: '🔪 Нож — убивает врага автоматически при контакте, ТОЛЬКО если выбран в инвентаре',
+    hint_shield: '🛡 Щит — поглощает одну смерть, ТОЛЬКО если выбран в инвентаре',
+    hint_superknife: '🍴 Супер-нож — убивает обычных врагов без траты (только если выбран). Босс: 2 удара, тратится.',
+    hint_clock: '⏰ Часы — использование замораживает врагов и лабиринт на 3 хода',
+    hint_tilde: '⌁ Тильда — использовать, затем направление — сломает одну стену',
+    hint_mine: '💣 Мина — ставится под ногами. Убивает любого, кто наступит. Со своей можно сойти.',
+    hint_stealthmine: '🧨 Невидимая мина — как обычная, но враги её НЕ видят и наступают',
+    hint_random: '🎲 Рандом — мгновенно меняет лабиринт',
+    hint_slot: '🎒 Рюкзак — +1 слот к инвентарю',
+    hint_crossbow: '🏹 Арбалет — использовать, потом направление, убивает первого врага на прямой',
+    hint_amulet: '🔮 Амулет — пока лежит в инвентаре, каждый задерживает изменение лабиринта на +1 ход (регенерация каждые 3+N ходов вместо 3). При использовании — меняет лабиринт сразу и тратится.',
+    hint_restart: '🔁 Рестарт — раунд заново с новой картой (инвентарь сохраняется)',
+    hint_key: '🔑 Ключ — открывает замок на выходе',
+    hint_regular: '🟥 Обычный враг — преследует тебя кратчайшим путём',
+    hint_patrol: '🟧 Патрульный — ходит туда-назад, не преследует тебя',
+    hint_sniper: '🎯 Снайпер — стоит на месте, убивает на прямой линии без стен',
+    hint_ghost: '👻 Призрак — ходит сквозь стены, но через ход',
+    hint_boss: '👹 Босс — 2 HP. Супер-нож, мина, арбалет, яма снимают по 1 HP. Выход закрыт пока жив.',
+    hint_pit: '⬛ Яма — убивает при наступлении. Враги видят и обходят.',
+    hint_ice: '🧊 Лёд — скользишь в том же направлении до стены',
+    hint_mud: '🟫 Грязь — пропускаешь следующий ход (и враги тоже)',
+    hint_conveyor: '➡️ Конвейер — после хода тянет ещё на 1 клетку в свою сторону',
+    hint_lock: '🔒 Замок — выход заблокирован до получения ключа',
+    hint_fog: '🌫 Туман войны — видно только 5 клеток вокруг'
+  },
+  uk: {
+    title: 'Лабіринт із пастками', moves: 'Кроків', round: 'Раунд', killed: 'Вбито',
+    invLabel: 'Інвентар (1–9 — вибір, клік теж)',
+    invLabelAmulet: (n, th) => `Інвентар · 🔮 ×${n} → регенерація кожні ${th} ходів`,
+    use: 'Використати ⏎', info: '📖 Довідка', godOn: '🛡 Невразливість: ON', godOff: '🛡 Невразливість: OFF',
+    newGame: 'Нова гра', help: 'Довідка',
+    ctrlArrows: '⬆️ Стрілки', ctrlWasd: '⌨ WASD', ctrlSwipe: '👆 Свайп', ctrlTilt: '📱 Нахил',
+    enemies: 'Вороги', items: 'Предмети', tiles: 'Тайли', controls: 'Керування',
+    notSeen: 'Ще не зустрічались.', noItems: "Жоден предмет ще не з'являвся.", noTiles: "Особливих тайлів ще немає.",
+    roundObjective: (r) => `Раунд ${r}`,
+    controlsInfo1: 'Кнопка циклічно перемикає: стрілки → WASD → свайп → нахил. Слот: 1–9. Використати: Пробіл/Enter.',
+    controlsInfo2: 'Телефон: свайп або нахил. Подвійний тап — використати. Нахил працює тільки на HTTPS.',
+    roundCompleted: (r) => `🏁 Раунд ${r} пройдено!`,
+    pickedUp: (n) => `Підібрано: ${n}`,
+    invFull: 'Інвентар повний!',
+    slotGained: '🎒 Інвентар збільшено! +1 слот',
+    gotKey: '🔑 Ключ знайдено! Замок на виході зник',
+    selectedEmpty: 'Вибраний слот порожній',
+    knifeAutoHint: 'Ніж працює автоматично, але ТІЛЬКИ якщо вибраний в інвентарі (в руці)',
+    shieldAutoHint: 'Щит захищає, але ТІЛЬКИ якщо вибраний в інвентарі (в руці)',
+    superknifeAutoHint: 'Супер-ніж працює, тільки якщо вибраний в інвентарі',
+    clockActivated: '⏰ Час зупинено на 3 ходи!',
+    tildePrompt: '⌁ Обери напрямок для злому стіни',
+    tildeNoWall: 'Тут немає стіни',
+    tildeBroken: '⌁ Стіну зламано!',
+    tildeOuterNo: 'Не можна ламати зовнішню стіну',
+    crossbowPrompt: '🏹 Обери напрямок пострілу',
+    crossbowHitBoss: '🏹 Постріл у боса: -1 HP',
+    crossbowKillBoss: '🏹 Боса вбито арбалетом!',
+    crossbowKill: '🏹 Постріл у ціль!',
+    crossbowMiss: '🏹 Постріл у нікуди',
+    mineHere: 'Тут вже є міна',
+    minePlaced: '💣 Міна встановлена — зійди з неї!',
+    stealthminePlaced: '🧨 Невидима міна встановлена — вороги її не бачать!',
+    randomUsed: '🎲 Лабіринт перегенеровано!',
+    amuletUsed: '🔮 Амулет використано — лабіринт змінено',
+    restartUsed: '🔁 Раунд спочатку!',
+    stuckInMud: '🟫 Ти застряг у грязі на хід',
+    stuckInMudEnemy: '🟫 Ворог застряг у грязі',
+    exitLocked: '🔒 Вихід закрито, знайди 🔑',
+    exitBossAlive: '👹 Спочатку вбий боса!',
+    killedByBoss: '💀 Бос тебе розчавив!',
+    bossHitNeedMore: '🍴 Удар по босу! Потрібен ще один',
+    bossHitMine: '💥 Міна влучила в боса: -1 HP',
+    bossKilledMine: '💥 Боса вбито міною!',
+    bossKilledPit: '🕳 Бос упав у яму!',
+    bossHitPit: '🕳 Бос поранений в ямі: -1 HP',
+    bossKilledKnife: '🍴 Боса вбито!',
+    enemyKilledKnife: '🔪 Ворога вбито ножем!',
+    enemyRanIntoKnife: '🔪 Ворог наштовхнувся на ніж!',
+    superKilledEnemy: '🍴 Супер-ніж вбив ворога',
+    shieldBlocked: '🛡 Щит поглинув атаку!',
+    shieldBlockedMine: '🛡 Щит поглинув вибух міни!',
+    shieldBlockedPit: '🛡 Щит врятував з ями!',
+    enemyShieldBroke: (name) => `🛡 Щит у ${name} зламався`,
+    invincibleKilled: (thing) => `🛡 ${thing} знищено (тест)`,
+    invincibleMine: '🛡 Міну знешкоджено (тест)',
+    invinciblePit: '🛡 Пройшов через яму (тест)',
+    diedMine: '💥 Ти підірвався на міні!',
+    diedPit: '🕳 Ти впав у яму!',
+    diedEnemy: '💀 Ворог спіймав тебе!',
+    diedSniper: '🎯 Снайпер тебе застрелив!',
+    enemyToPit: 'Ворог упав у яму! 🕳',
+    enemyToMine: '💥 Ворог підірвався на міні!',
+    enemyBrokeWall: '⌁ Ворог зламав стіну!',
+    enemyUsedRandom: '🎲 Ворог перегенерував лабіринт!',
+    enemyDropped: (itemName) => `💼 Ворог випустив: ${itemName}`,
+    godmodeOn: '🛡 Тестовий режим увімкнено',
+    godmodeOff: 'Тестовий режим вимкнено',
+    tiltHttpsRequired: '⚠ Нахил працює тільки на HTTPS або localhost',
+    tiltPermDenied: 'Доступ до акселерометра відхилено',
+    tiltPrompt: 'Нахили пристрій для руху',
+    tiltNotResponding: '⚠ Датчик нахилу не відповідає',
+    swipeHint: 'Свайп — рух, подвійний тап — використати',
+    wasdHint: 'WASD — рух, Пробіл/Enter — використати, 1–9 — слот',
+    arrowsHint: 'Стрілки — рух, Пробіл/Enter — використати, 1–9 — слот',
+    roundStart: (r) => `Раунд ${r}`,
+    objectiveFallback: '🎯 Пройди раунд. Складність зростає.',
+    newThisRound: 'Нове в цьому раунді:',
+    shopTitle: (r) => `Магазин після раунду ${r}`,
+    shopPrompt: 'Обери один предмет. Потім почнеться наступний раунд:',
+    shopSkip: 'Пропустити',
+    shopReceived: (n) => `🛒 Отримано: ${n}`,
+    swapTitle: 'Інвентар повний — замінити?',
+    swapPrompt: 'Обери слот для заміни, або пропусти.',
+    swapMandatory: 'Цей предмет обов\'язковий. Обери слот для заміни.',
+    replaceSlot: 'Замінити слот',
+    swapSkip: 'Залишити предмет на карті',
+    newItem: 'НОВЕ',
+    infoTitle: 'Довідка',
+    hint_knife: '🔪 Ніж — вбиває ворога автоматично при контакті, ТІЛЬКИ якщо вибраний в інвентарі',
+    hint_shield: '🛡 Щит — поглинає одну смерть, ТІЛЬКИ якщо вибраний в інвентарі',
+    hint_superknife: '🍴 Супер-ніж — вбиває звичайних ворогів без витрати (тільки вибраний). Бос: 2 удари, тратиться.',
+    hint_clock: '⏰ Годинник — використати: заморожує ворогів і лабіринт на 3 ходи',
+    hint_tilde: '⌁ Тільда — використати, потім напрямок, ламає одну стіну',
+    hint_mine: '💣 Міна — ставиться під ногами. Вбиває будь-кого. Зі своєї можна зійти.',
+    hint_stealthmine: '🧨 Невидима міна — як звичайна, але вороги її НЕ бачать і наступають',
+    hint_random: '🎲 Рандом — миттєво міняє лабіринт',
+    hint_slot: '🎒 Рюкзак — +1 слот інвентаря',
+    hint_crossbow: '🏹 Арбалет — використати, потім напрямок, вбиває першого ворога на прямій',
+    hint_amulet: '🔮 Амулет — поки лежить в інвентарі, кожен затримує зміну лабіринту на +1 хід (регенерація кожні 3+N ходів замість 3). При використанні — змінює лабіринт одразу і витрачається.',
+    hint_restart: '🔁 Рестарт — раунд спочатку з новою мапою (інвентар зберігається)',
+    hint_key: '🔑 Ключ — відкриває замок на виході',
+    hint_regular: '🟥 Звичайний ворог — переслідує тебе найкоротшим шляхом',
+    hint_patrol: '🟧 Патрульний — ходить туди-назад, не переслідує тебе',
+    hint_sniper: '🎯 Снайпер — стоїть на місці, вбиває на прямій без стін',
+    hint_ghost: '👻 Привид — ходить крізь стіни, але через хід',
+    hint_boss: '👹 Бос — 2 HP. Супер-ніж, міна, арбалет, яма знімають по 1 HP. Вихід закрито поки живий.',
+    hint_pit: "⬛ Яма — вбиває того, хто наступить. Вороги бачать і обходять.",
+    hint_ice: '🧊 Лід — ковзаєш у тому ж напрямку до стіни',
+    hint_mud: '🟫 Грязь — пропускаєш наступний хід (і вороги теж)',
+    hint_conveyor: "➡️ Конвеєр — після ходу тягне на 1 клітину в свою сторону",
+    hint_lock: '🔒 Замок — вихід заблоковано до отримання ключа',
+    hint_fog: '🌫 Туман війни — видно тільки 5 клітин навколо'
+  }
+};
+
+function detectLanguage() {
+  const navLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+  if (navLang.startsWith('ru')) return 'ru';
+  if (navLang.startsWith('uk')) return 'uk';
+  return 'en';
+}
+
+function detectMobile() {
+  const ua = navigator.userAgent || '';
+  const mobileRegex = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i;
+  return mobileRegex.test(ua) || (('ontouchstart' in window) && Math.min(window.innerWidth, window.innerHeight) < 900);
+}
+
+let LANG = detectLanguage();
+let IS_MOBILE = detectMobile();
+function t(key, ...args) {
+  const val = I18N[LANG][key] || I18N.en[key] || key;
+  return typeof val === 'function' ? val(...args) : val;
+}
 
 // =================== CONFIG ===================
 const GRID = 10;
 const CELL = 38;
 const PAD = 8;
 const CANVAS_SIZE = GRID * CELL + PAD * 2;
+const INITIAL_INV_SIZE = 3;
+const FOG_RADIUS_CELLS = 5;
 
 const DIRS = {
   n: { dx: 0, dy: -1, opp: 's' },
@@ -152,35 +490,143 @@ const DIRS = {
   s: { dx: 0, dy: 1, opp: 'n' },
   w: { dx: -1, dy: 0, opp: 'e' }
 };
+const DIR_KEYS = ['n','e','s','w'];
 
-const ITEMS = {
-  knife:  { color: '#c0392b', emoji: '🔪', name: 'Ніж' },
-  clock:  { color: '#3498db', emoji: '⏰', name: 'Годинник' },
-  tilde:  { color: '#9b59b6', emoji: '⌁', name: 'Тільда' },
-  mine:   { color: '#2c3e50', emoji: '💣', name: 'Міна' },
-  random: { color: '#e67e22', emoji: '🎲', name: 'Рандом' }
+// items metadata — localized names via ITEMS[type].nameKey
+const ITEM_META = {
+  knife:      { emoji: '🔪' },
+  superknife: { emoji: '🍴' },
+  clock:      { emoji: '⏰' },
+  tilde:      { emoji: '⌁' },
+  mine:       { emoji: '💣' },
+  stealthmine:{ emoji: '🧨' },
+  random:     { emoji: '🎲' },
+  slot:       { emoji: '🎒' },
+  shield:     { emoji: '🛡' },
+  crossbow:   { emoji: '🏹' },
+  amulet:     { emoji: '🔮' },
+  restart:    { emoji: '🔁' },
+  key:        { emoji: '🔑' }
 };
+const ITEM_NAMES = {
+  knife: { en: 'Knife', ru: 'Нож', uk: 'Ніж' },
+  superknife: { en: 'Super-knife', ru: 'Супер-нож', uk: 'Супер-ніж' },
+  clock: { en: 'Clock', ru: 'Часы', uk: 'Годинник' },
+  tilde: { en: 'Tilde', ru: 'Тильда', uk: 'Тільда' },
+  mine: { en: 'Mine', ru: 'Мина', uk: 'Міна' },
+  stealthmine: { en: 'Stealth mine', ru: 'Скрытая мина', uk: 'Невидима міна' },
+  random: { en: 'Random', ru: 'Рандом', uk: 'Рандом' },
+  slot: { en: 'Backpack', ru: 'Рюкзак', uk: 'Рюкзак' },
+  shield: { en: 'Shield', ru: 'Щит', uk: 'Щит' },
+  crossbow: { en: 'Crossbow', ru: 'Арбалет', uk: 'Арбалет' },
+  amulet: { en: 'Amulet', ru: 'Амулет', uk: 'Амулет' },
+  restart: { en: 'Restart', ru: 'Рестарт', uk: 'Рестарт' },
+  key: { en: 'Key', ru: 'Ключ', uk: 'Ключ' }
+};
+function itemName(type) { return ITEM_NAMES[type][LANG] || ITEM_NAMES[type].en; }
+function itemEmoji(type) { return ITEM_META[type].emoji; }
+
+const ENEMY_META = {
+  regular: { emoji: '🟥' },
+  patrol: { emoji: '🟧' },
+  sniper: { emoji: '🎯' },
+  ghost: { emoji: '👻' },
+  boss: { emoji: '👹' }
+};
+const ENEMY_NAMES = {
+  regular: { en: 'Regular enemy', ru: 'Обычный враг', uk: 'Звичайний ворог' },
+  patrol: { en: 'Patrol', ru: 'Патрульный', uk: 'Патрульний' },
+  sniper: { en: 'Sniper', ru: 'Снайпер', uk: 'Снайпер' },
+  ghost: { en: 'Ghost', ru: 'Призрак', uk: 'Привид' },
+  boss: { en: 'Boss', ru: 'Босс', uk: 'Бос' }
+};
+function enemyName(type) { return ENEMY_NAMES[type][LANG] || ENEMY_NAMES[type].en; }
+
+const TILE_META = {
+  pit: { emoji: '⬛' }, ice: { emoji: '🧊' }, mud: { emoji: '🟫' },
+  conveyor: { emoji: '➡️' }, lock: { emoji: '🔒' }
+};
+const TILE_NAMES = {
+  pit: { en: 'Pit', ru: 'Яма', uk: 'Яма' },
+  ice: { en: 'Ice', ru: 'Лёд', uk: 'Лід' },
+  mud: { en: 'Mud', ru: 'Грязь', uk: 'Грязь' },
+  conveyor: { en: 'Conveyor', ru: 'Конвейер', uk: 'Конвеєр' },
+  lock: { en: 'Lock', ru: 'Замок', uk: 'Замок' }
+};
+function tileName(type) { return TILE_NAMES[type]?.[LANG] || type; }
+
+const CONTROL_CYCLE_DESKTOP = ['arrows', 'wasd', 'swipe', 'tilt'];
+const CONTROL_CYCLE_MOBILE  = ['swipe', 'tilt', 'arrows', 'wasd'];
+
+function controlLabel(id) {
+  if (id === 'arrows') return t('ctrlArrows');
+  if (id === 'wasd') return t('ctrlWasd');
+  if (id === 'swipe') return t('ctrlSwipe');
+  if (id === 'tilt') return t('ctrlTilt');
+  return id;
+}
 
 // =================== STATE ===================
 let state = null;
 let control = 'arrows';
-let pendingTilde = false;
+let pendingAction = null;
 let tiltCooldown = 0;
 let invincible = false;
+let tiltAnimationFrame = null;
+let pendingPickup = null; // for swap modal
 
 // =================== UTILS ===================
 function randInt(n) { return Math.floor(Math.random() * n); }
 function manhattan(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
 function same(a, b) { return a && b && a.x === b.x && a.y === b.y; }
+function inBounds(x, y) { return x >= 0 && x < GRID && y >= 0 && y < GRID; }
 
-// =================== MAZE GENERATION ===================
+function hasLineOfSight(from, to, walls, blockers) {
+  if (from.x === to.x && from.y === to.y) return false;
+  const blockSet = blockers ? new Set(blockers.map(b => b.x * 100 + b.y)) : null;
+  const blocked = (x, y) => blockSet && (x !== from.x || y !== from.y) && (x !== to.x || y !== to.y) && blockSet.has(x * 100 + y);
+  if (from.x === to.x) {
+    const step = from.y < to.y ? 1 : -1;
+    for (let y = from.y; y !== to.y; y += step) {
+      if (step > 0 && walls[y][from.x].s) return false;
+      if (step < 0 && walls[y][from.x].n) return false;
+      const ny = y + step;
+      if (blocked(from.x, ny)) return false;
+    }
+    return true;
+  }
+  if (from.y === to.y) {
+    const step = from.x < to.x ? 1 : -1;
+    for (let x = from.x; x !== to.x; x += step) {
+      if (step > 0 && walls[from.y][x].e) return false;
+      if (step < 0 && walls[from.y][x].w) return false;
+      const nx = x + step;
+      if (blocked(nx, from.y)) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+function rayFirstEnemy(from, dir, walls, enemies) {
+  const def = DIRS[dir];
+  let x = from.x, y = from.y;
+  for (let step = 0; step < GRID; step++) {
+    if (walls[y][x][dir]) return null;
+    x += def.dx; y += def.dy;
+    if (!inBounds(x, y)) return null;
+    const target = enemies.find(e => e.x === x && e.y === y);
+    if (target) return target;
+  }
+  return null;
+}
+
+// =================== MAZE ===================
 function createFullWalls() {
   const w = [];
   for (let y = 0; y < GRID; y++) {
     w[y] = [];
-    for (let x = 0; x < GRID; x++) {
-      w[y][x] = { n: true, e: true, s: true, w: true };
-    }
+    for (let x = 0; x < GRID; x++) w[y][x] = { n: true, e: true, s: true, w: true };
   }
   return w;
 }
@@ -188,22 +634,17 @@ function createFullWalls() {
 function generateMaze() {
   const walls = createFullWalls();
   const visited = Array.from({length: GRID}, () => new Array(GRID).fill(false));
-  const startX = randInt(GRID), startY = randInt(GRID);
-  const stack = [[startX, startY]];
-  visited[startY][startX] = true;
-
+  const stack = [[randInt(GRID), randInt(GRID)]];
+  visited[stack[0][1]][stack[0][0]] = true;
   while (stack.length) {
     const [x, y] = stack[stack.length - 1];
     const avail = [];
     for (const [d, def] of Object.entries(DIRS)) {
       const nx = x + def.dx, ny = y + def.dy;
-      if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID && !visited[ny][nx]) {
-        avail.push([d, nx, ny]);
-      }
+      if (inBounds(nx, ny) && !visited[ny][nx]) avail.push([d, nx, ny]);
     }
-    if (!avail.length) {
-      stack.pop();
-    } else {
+    if (!avail.length) stack.pop();
+    else {
       const [d, nx, ny] = avail[randInt(avail.length)];
       walls[y][x][d] = false;
       walls[ny][nx][DIRS[d].opp] = false;
@@ -211,15 +652,12 @@ function generateMaze() {
       stack.push([nx, ny]);
     }
   }
-
-  // Add loops — remove ~12% of internal walls to make maze feel more open
   const loops = Math.floor(GRID * GRID * 0.12);
   for (let i = 0; i < loops; i++) {
     const x = randInt(GRID), y = randInt(GRID);
-    const dirs = Object.keys(DIRS);
-    const d = dirs[randInt(4)];
+    const d = DIR_KEYS[randInt(4)];
     const nx = x + DIRS[d].dx, ny = y + DIRS[d].dy;
-    if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+    if (inBounds(nx, ny)) {
       walls[y][x][d] = false;
       walls[ny][nx][DIRS[d].opp] = false;
     }
@@ -228,44 +666,94 @@ function generateMaze() {
 }
 
 function accessibleNeighbors(x, y, walls) {
-  const result = [];
+  const r = [];
   for (const [d, def] of Object.entries(DIRS)) {
-    if (!walls[y][x][d]) {
-      result.push({ x: x + def.dx, y: y + def.dy });
-    }
+    if (!walls[y][x][d]) r.push({ x: x + def.dx, y: y + def.dy });
   }
-  return result;
+  return r;
 }
 
-function bfsNext(from, to, walls) {
+// BFS with ability to avoid pits and visible mines, optional ignoreWalls
+function bfsNext(from, to, walls, opts = {}) {
+  const { ignoreWalls = false, avoidPits = false, avoidMines = false, blockedCells = [], useTeleport = false } = opts;
   if (from.x === to.x && from.y === to.y) return null;
   const key = (x, y) => x * 100 + y;
   const startKey = key(from.x, from.y);
   const visited = new Set([startKey]);
   const parent = new Map();
   const queue = [[from.x, from.y]];
+  const s = state;
+
+  const blockedSet = new Set(blockedCells.map(c => key(c.x, c.y)));
+
+  const teleportPair = (x, y) => {
+    if (!useTeleport || s.teleports.length !== 2) return null;
+    const [a, b] = s.teleports;
+    if (a.x === x && a.y === y) return b;
+    if (b.x === x && b.y === y) return a;
+    return null;
+  };
+
+  const canEnter = (nx, ny, isDestination) => {
+    if (isDestination) return true;
+    if (avoidPits && s.tiles[ny][nx] === 'pit') return false;
+    if (avoidMines) {
+      const vis = s.mines.find(m => m.x === nx && m.y === ny && !m.stealth);
+      if (vis) return false;
+    }
+    if (blockedSet.has(key(nx, ny))) return false;
+    return true;
+  };
 
   while (queue.length) {
     const [x, y] = queue.shift();
     if (x === to.x && y === to.y) {
       let cur = key(x, y);
-      while (parent.get(cur) !== undefined && parent.get(cur) !== startKey) {
-        cur = parent.get(cur);
-      }
-      const nx = Math.floor(cur / 100), ny = cur % 100;
-      return { x: nx, y: ny };
+      while (parent.get(cur) !== undefined && parent.get(cur) !== startKey) cur = parent.get(cur);
+      return { x: Math.floor(cur / 100), y: cur % 100 };
     }
-    for (const n of accessibleNeighbors(x, y, walls)) {
+    const neighbors = ignoreWalls
+      ? DIR_KEYS.map(d => ({ x: x + DIRS[d].dx, y: y + DIRS[d].dy })).filter(n => inBounds(n.x, n.y))
+      : accessibleNeighbors(x, y, walls);
+    for (const n of neighbors) {
       const k = key(n.x, n.y);
-      if (!visited.has(k)) {
-        visited.add(k);
-        parent.set(k, key(x, y));
-        queue.push([n.x, n.y]);
+      if (visited.has(k)) continue;
+      if (!canEnter(n.x, n.y, n.x === to.x && n.y === to.y)) continue;
+      visited.add(k);
+      parent.set(k, key(x, y));
+      queue.push([n.x, n.y]);
+    }
+    // Teleport virtual step — pair has this cell as parent so first-step trace lands on this cell (physical step)
+    const pair = teleportPair(x, y);
+    if (pair) {
+      const pk = key(pair.x, pair.y);
+      if (!visited.has(pk)) {
+        visited.add(pk);
+        parent.set(pk, key(x, y));
+        queue.push([pair.x, pair.y]);
       }
     }
   }
   return null;
 }
+
+// =================== INVENTORY HELPERS ===================
+function emptySlotIndex() {
+  const inv = state.player.inv;
+  for (let i = 0; i < inv.length; i++) if (!inv[i]) return i;
+  return -1;
+}
+function selectedItem() { return state.player.inv[state.player.selectedSlot]; }
+function selectedIs(type) { return selectedItem() === type; }
+function findItemSlot(type) { return state.player.inv.findIndex(s => s === type); }
+function consumeSelected() { state.player.inv[state.player.selectedSlot] = null; }
+function consumeFirstOfType(type) {
+  const idx = findItemSlot(type);
+  if (idx !== -1) state.player.inv[idx] = null;
+  return idx !== -1;
+}
+function amuletCount() { return state.player.inv.filter(s => s === 'amulet').length; }
+function regenThreshold() { return 3 + amuletCount(); }
 
 // =================== SETUP ===================
 function cellOccupied(c) {
@@ -273,32 +761,28 @@ function cellOccupied(c) {
   if (same(c, s.player)) return true;
   if (same(c, s.exit)) return true;
   for (const e of s.enemies) if (same(c, e)) return true;
-  for (const p of s.pits) if (same(c, p)) return true;
   for (const it of s.items) if (same(c, it)) return true;
   for (const m of s.mines) if (same(c, m)) return true;
   for (const t of s.teleports) if (same(c, t)) return true;
+  if (s.tiles[c.y][c.x] !== 'normal') return true;
   return false;
 }
 
-function randomEmptyCell(predicate) {
-  const candidates = [];
-  for (let y = 0; y < GRID; y++) {
-    for (let x = 0; x < GRID; x++) {
+function randomEmptyCell(pred) {
+  const list = [];
+  for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
+    const cell = { x, y };
+    if (cellOccupied(cell)) continue;
+    if (pred && !pred(cell)) continue;
+    list.push(cell);
+  }
+  if (!list.length) {
+    for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
       const cell = { x, y };
-      if (cellOccupied(cell)) continue;
-      if (predicate && !predicate(cell)) continue;
-      candidates.push(cell);
+      if (!cellOccupied(cell)) list.push(cell);
     }
   }
-  if (!candidates.length) {
-    for (let y = 0; y < GRID; y++) {
-      for (let x = 0; x < GRID; x++) {
-        const cell = { x, y };
-        if (!cellOccupied(cell)) candidates.push(cell);
-      }
-    }
-  }
-  return candidates.length ? candidates[randInt(candidates.length)] : null;
+  return list.length ? list[randInt(list.length)] : null;
 }
 
 function getExitCandidates(start) {
@@ -320,74 +804,157 @@ function far3(c) {
 function newGame() {
   state = {
     walls: null,
-    player: { x: 0, y: 0, inv: null, onMineId: null },
-    enemies: [],
-    pits: [],
-    items: [],
-    mines: [],
-    mineIdCounter: 0,
-    teleports: [],
-    exit: { x: 0, y: 0 },
-    round: 1,
-    moves: 0,
-    killed: 0,
-    movesSinceRegen: 0,
-    freezeMaze: 0,
-    gameOver: false,
-    transitioning: false,
-    startCorner: { x: 0, y: 0 }
+    tiles: Array.from({length: GRID}, () => new Array(GRID).fill('normal')),
+    conveyorDirs: Array.from({length: GRID}, () => new Array(GRID).fill(null)),
+    player: { x: 0, y: 0, inv: new Array(INITIAL_INV_SIZE).fill(null), invSize: INITIAL_INV_SIZE, selectedSlot: 0, onMineId: null, skipNextTurn: false },
+    keysNeeded: 0,
+    enemies: [], items: [], mines: [], mineIdCounter: 0,
+    teleports: [], exit: { x: 0, y: 0 },
+    round: 1, moves: 0, killed: 0,
+    movesSinceRegen: 0, freezeMaze: 0,
+    gameOver: false, transitioning: false,
+    fogOfWar: false,
+    startCorner: { x: 0, y: 0 },
+    seenItems: new Set(), seenEnemies: new Set(['regular']), seenTiles: new Set()
   };
-  pendingTilde = false;
+  pendingAction = null;
+  pendingPickup = null;
   document.getElementById('restartBtn').style.display = 'none';
   setupRound(1);
 }
 
+function roundSpec(r) {
+  const spec = {
+    regular: 1, patrol: 0, sniper: 0, ghost: 0, boss: 0,
+    pits: 0, knives: 0, superknives: 0,
+    tilde: 0, clock: 0, mine: 0, stealthmine: 0, random: 0,
+    shield: 0, crossbow: 0, amulet: 0, restart: 0,
+    teleport: false, slot: false, keys: 0,
+    ice: 0, mud: 0, conveyor: 0, fog: false
+  };
+  if (r % 3 === 0) spec.slot = true;
+
+  if (r <= 3) spec.regular = 1;
+  else if (r <= 5) spec.regular = 2;
+  else if (r <= 8) spec.regular = 3;
+  else spec.regular = 4;
+
+  if (r >= 2) spec.pits = 1;
+  if (r >= 8) spec.pits = 2;
+
+  if (r >= 3 && r !== 10 && r !== 20) spec.knives = 1;
+  if (r >= 9 && r !== 10 && r !== 20) spec.knives = 2;
+
+  if (r >= 4) spec.teleport = true;
+  if (r >= 6) { spec.patrol = 1; spec.regular = Math.max(0, spec.regular - 1); spec.tilde = 1; }
+  if (r >= 7) { spec.shield = 1; spec.clock = 1; }
+  if (r >= 8) spec.ice = 3;
+  if (r >= 9) spec.mine = 1;
+  if (r === 9 || r >= 11) spec.random = 1;
+  if (r >= 11) { spec.mud = 3; spec.clock = 2; }
+  if (r >= 12) { spec.sniper = 1; spec.regular = Math.max(0, spec.regular - 1); spec.stealthmine = 1; }
+  if (r >= 13) spec.crossbow = 1;
+  if (r >= 14) { spec.ghost = 1; spec.regular = Math.max(0, spec.regular - 1); }
+  if (r >= 15) spec.keys = 1;
+  if (r >= 18) spec.keys = 2;
+  if (r >= 20) spec.keys = 2;
+  if (r >= 16) spec.fog = true;
+  if (r >= 17) spec.conveyor = 3;
+  if (r >= 7 && Math.random() < 0.4) spec.amulet = 1;
+  if (r >= 9 && Math.random() < 0.3) spec.restart = 1;
+
+  if (r === 10 || r === 20) {
+    spec.boss = 1;
+    spec.regular = r === 10 ? 2 : 3;
+    spec.ghost = r === 20 ? 1 : 0;
+    spec.patrol = 0; spec.sniper = 0;
+    spec.superknives = 2;
+    spec.knives = 0;
+    spec.lock = false; spec.keys = 0; // boss itself locks exit
+    spec.fog = r === 20;
+  }
+  return spec;
+}
+
 function setupRound(round) {
   const s = state;
+
+  const prevItems = new Set(s.seenItems);
+  const prevEnemies = new Set(s.seenEnemies);
+  const prevTiles = new Set(s.seenTiles);
+
   s.round = round;
   s.movesSinceRegen = 0;
   s.freezeMaze = 0;
-  s.pits = [];
-  s.items = [];
-  s.mines = [];
-  s.teleports = [];
-  s.enemies = [];
+  s.items = []; s.mines = []; s.teleports = []; s.enemies = [];
+  s.player.skipNextTurn = false;
+  s.tiles = Array.from({length: GRID}, () => new Array(GRID).fill('normal'));
+  s.conveyorDirs = Array.from({length: GRID}, () => new Array(GRID).fill(null));
 
   const corners = [{x:0,y:0},{x:9,y:0},{x:0,y:9},{x:9,y:9}];
   const start = corners[randInt(4)];
   s.startCorner = {...start};
-  s.player.x = start.x;
-  s.player.y = start.y;
+  s.player.x = start.x; s.player.y = start.y;
   s.player.onMineId = null;
 
   const exits = getExitCandidates(start);
   s.exit = {...exits[randInt(exits.length)]};
-
   s.walls = generateMaze();
 
-  // Enemies
-  const numEnemies = round >= 5 ? 4 : 3;
-  for (let i = 0; i < numEnemies; i++) {
+  const spec = roundSpec(round);
+  s.fogOfWar = spec.fog;
+
+  s.keysNeeded = spec.keys;
+  if (spec.keys > 0) { s.tiles[s.exit.y][s.exit.x] = 'lock'; s.seenTiles.add('lock'); }
+
+  const placeTileZone = (type, count) => {
+    for (let i = 0; i < count; i++) {
+      const pos = randomEmptyCell(c => manhattan(c, s.player) >= 3 && manhattan(c, s.exit) >= 2);
+      if (pos) {
+        s.tiles[pos.y][pos.x] = type;
+        if (type === 'conveyor') s.conveyorDirs[pos.y][pos.x] = DIR_KEYS[randInt(4)];
+        s.seenTiles.add(type);
+      }
+    }
+  };
+  placeTileZone('ice', spec.ice);
+  placeTileZone('mud', spec.mud);
+  placeTileZone('conveyor', spec.conveyor);
+
+  for (let i = 0; i < spec.pits; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 7);
+    if (pos) { s.tiles[pos.y][pos.x] = 'pit'; s.seenTiles.add('pit'); }
+  }
+
+  for (let i = 0; i < spec.boss; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 6);
+    if (pos) { s.enemies.push({ type: 'boss', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, hp: 2, skipNextTurn: false }); s.seenEnemies.add('boss'); }
+  }
+  for (let i = 0; i < spec.regular; i++) {
     const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
-    if (pos) s.enemies.push({ x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null });
+    if (pos) s.enemies.push({ type: 'regular', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, skipNextTurn: false });
+  }
+  for (let i = 0; i < spec.patrol; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
+    if (pos) { s.enemies.push({ type: 'patrol', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, dir: DIR_KEYS[randInt(4)], skipNextTurn: false }); s.seenEnemies.add('patrol'); }
+  }
+  for (let i = 0; i < spec.sniper; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
+    if (pos) { s.enemies.push({ type: 'sniper', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, skipNextTurn: false }); s.seenEnemies.add('sniper'); }
+  }
+  for (let i = 0; i < spec.ghost; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
+    if (pos) { s.enemies.push({ type: 'ghost', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, skipNext: false, skipNextTurn: false }); s.seenEnemies.add('ghost'); }
   }
 
-  // Pits (round >= 2)
-  const numPits = round >= 8 ? 2 : (round >= 2 ? 1 : 0);
-  for (let i = 0; i < numPits; i++) {
-    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 7);
-    if (pos) s.pits.push(pos);
-  }
+  const addItem = (type, dist) => {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= (dist || 3));
+    if (pos) { s.items.push({ type, x: pos.x, y: pos.y }); s.seenItems.add(type); }
+  };
 
-  // Knives (round >= 3)
-  const numKnives = round >= 9 ? 2 : (round >= 3 ? 1 : 0);
-  for (let i = 0; i < numKnives; i++) {
-    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 7);
-    if (pos) s.items.push({ type: 'knife', x: pos.x, y: pos.y });
-  }
-
-  // Teleport pair (round >= 4)
-  if (round >= 4) {
+  for (let i = 0; i < spec.knives; i++) addItem('knife', 5);
+  for (let i = 0; i < spec.superknives; i++) addItem('superknife', 4);
+  if (spec.teleport) {
     const a = randomEmptyCell(c => manhattan(c, s.player) >= 5 && manhattan(c, s.exit) >= 5);
     if (a) {
       s.teleports.push(a);
@@ -395,125 +962,245 @@ function setupRound(round) {
       if (b) s.teleports.push(b); else s.teleports.pop();
     }
   }
-
-  // Tildes (round >= 6)
-  const numTildes = round >= 10 ? 2 : (round >= 6 ? 1 : 0);
-  for (let i = 0; i < numTildes; i++) {
-    const pos = randomEmptyCell(c => far3(c));
-    if (pos) s.items.push({ type: 'tilde', x: pos.x, y: pos.y });
+  for (let i = 0; i < spec.tilde; i++) addItem('tilde');
+  for (let i = 0; i < spec.clock; i++) addItem('clock');
+  for (let i = 0; i < spec.mine; i++) addItem('mine');
+  for (let i = 0; i < spec.stealthmine; i++) addItem('stealthmine');
+  for (let i = 0; i < spec.random; i++) addItem('random');
+  for (let i = 0; i < spec.shield; i++) addItem('shield', 4);
+  for (let i = 0; i < spec.crossbow; i++) addItem('crossbow', 4);
+  for (let i = 0; i < spec.amulet; i++) addItem('amulet');
+  for (let i = 0; i < spec.restart; i++) addItem('restart');
+  if (spec.slot) addItem('slot');
+  for (let i = 0; i < spec.keys; i++) {
+    // Key must be on a fully empty cell (no items, no tiles, no enemies)
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 4 && manhattan(c, s.exit) >= 4);
+    if (pos) { s.items.push({ type: 'key', x: pos.x, y: pos.y }); s.seenItems.add('key'); }
   }
 
-  // Clocks (round >= 7)
-  const numClocks = round >= 11 ? 2 : (round >= 7 ? 1 : 0);
-  for (let i = 0; i < numClocks; i++) {
-    const pos = randomEmptyCell(c => far3(c));
-    if (pos) s.items.push({ type: 'clock', x: pos.x, y: pos.y });
-  }
+  // Build tips for this round
+  const newItems = [...s.seenItems].filter(x => !prevItems.has(x));
+  const newEnemies = [...s.seenEnemies].filter(x => !prevEnemies.has(x));
+  const newTiles = [...s.seenTiles].filter(x => !prevTiles.has(x));
+  if (spec.fog && !state._fogTipShown) { newTiles.push('__fog__'); state._fogTipShown = true; }
 
-  // Mine (rounds 8-9)
-  if (round === 8 || round === 9) {
-    const pos = randomEmptyCell(c => far3(c));
-    if (pos) s.items.push({ type: 'mine', x: pos.x, y: pos.y });
-  }
-
-  // Random (round 9)
-  if (round === 9) {
-    const pos = randomEmptyCell(c => far3(c));
-    if (pos) s.items.push({ type: 'random', x: pos.x, y: pos.y });
-  }
+  renderTips([
+    ...newEnemies.map(k => t('hint_' + k)),
+    ...newItems.map(k => t('hint_' + k)),
+    ...newTiles.map(k => k === '__fog__' ? t('hint_fog') : t('hint_' + k))
+  ].filter(Boolean));
 
   render();
+  renderInventory();
   updateHUD();
   flashCanvas();
-  showMessage(`Раунд ${round}. Знайди вихід!`);
+  showMessage(t('roundStart', round));
+}
+
+function renderTips(tips) {
+  const el = document.getElementById('tips');
+  if (!tips.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="tip"><strong>${t('newThisRound')}</strong></div>` +
+    tips.map(tp => `<div class="tip">${tp}</div>`).join('');
 }
 
 function flashCanvas() {
   const c = document.getElementById('canvas');
-  c.classList.remove('round-flash');
-  void c.offsetWidth;
-  c.classList.add('round-flash');
+  c.classList.remove('round-flash'); void c.offsetWidth; c.classList.add('round-flash');
 }
-
 function regenerateMaze() {
   state.walls = generateMaze();
   state.movesSinceRegen = 0;
 }
 
 // =================== PLAYER ACTIONS ===================
-function tryMovePlayer(dir) {
+function handlePendingDirection(dir) {
   const s = state;
-  if (s.gameOver || s.transitioning) return;
   const p = s.player;
-  const def = DIRS[dir];
-  const nx = p.x + def.dx, ny = p.y + def.dy;
-
-  // Tilde — breaking a wall in chosen direction
-  if (pendingTilde && p.inv === 'tilde') {
-    pendingTilde = false;
-    if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) {
-      showMessage('Не можна ламати зовнішню стіну');
-      return;
-    }
+  if (pendingAction === 'tilde') {
+    pendingAction = null;
+    const def = DIRS[dir];
+    const nx = p.x + def.dx, ny = p.y + def.dy;
+    if (!inBounds(nx, ny)) { showMessage(t('tildeOuterNo')); return true; }
     if (s.walls[p.y][p.x][dir]) {
       s.walls[p.y][p.x][dir] = false;
       s.walls[ny][nx][def.opp] = false;
-      p.inv = null;
-      showMessage('Стіну зламано! ⌁');
-      performPlayerMove(nx, ny);
-      return;
+      consumeFirstOfType('tilde');
+      renderInventory();
+      showMessage(t('tildeBroken'));
+      performPlayerMove(nx, ny, dir);
+    } else {
+      showMessage(t('tildeNoWall'));
     }
-    showMessage('Тут немає стіни для злому');
-    // continue to regular move
+    return true;
   }
-
-  if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) return;
-  if (s.walls[p.y][p.x][dir]) return;
-  performPlayerMove(nx, ny);
+  if (pendingAction === 'crossbow') {
+    pendingAction = null;
+    const target = rayFirstEnemy({x:p.x, y:p.y}, dir, s.walls, s.enemies);
+    consumeFirstOfType('crossbow');
+    if (target) {
+      damageEnemy(target, 'crossbow');
+    } else {
+      showMessage(t('crossbowMiss'));
+    }
+    renderInventory();
+    render(); updateHUD();
+    return true;
+  }
+  return false;
 }
 
-function performPlayerMove(nx, ny) {
+function tryMovePlayer(dir) {
+  const s = state;
+  if (s.gameOver || s.transitioning) return;
+  if (handlePendingDirection(dir)) return;
+
+  const p = s.player;
+
+  if (p.skipNextTurn) {
+    p.skipNextTurn = false;
+    showMessage(t('stuckInMud'));
+    s.moves++;
+    advanceMazeRegen();
+    enemyTurn();
+    render(); renderInventory(); updateHUD();
+    return;
+  }
+
+  const def = DIRS[dir];
+  const nx = p.x + def.dx, ny = p.y + def.dy;
+  if (!inBounds(nx, ny)) return;
+  if (s.walls[p.y][p.x][dir]) return;
+  performPlayerMove(nx, ny, dir);
+}
+
+function advanceMazeRegen() {
+  const s = state;
+  if (s.freezeMaze > 0) s.freezeMaze--;
+  else {
+    s.movesSinceRegen++;
+    if (s.movesSinceRegen >= regenThreshold()) regenerateMaze();
+  }
+}
+
+function performPlayerMove(nx, ny, moveDir) {
   const s = state;
   const p = s.player;
 
-  // Leaving own mine — arm it
   if (p.onMineId !== null) p.onMineId = null;
-
-  p.x = nx;
-  p.y = ny;
+  p.x = nx; p.y = ny;
   s.moves++;
 
-  // Teleport
-  checkTeleport(p);
+  // Ice slide
+  let slideDir = moveDir;
+  let iceIter = 0;
+  while (slideDir && s.tiles[p.y][p.x] === 'ice' && iceIter < 12) {
+    iceIter++;
+    const def = DIRS[slideDir];
+    const tx = p.x + def.dx, ty = p.y + def.dy;
+    if (!inBounds(tx, ty) || s.walls[p.y][p.x][slideDir]) break;
+    if (s.enemies.some(e => e.x === tx && e.y === ty)) break;
+    p.x = tx; p.y = ty;
+  }
 
-  // Collision with enemy (player stepped onto enemy)
-  if (resolvePlayerEnemyCollision()) return;
+  if (handleLandOn(p)) return;
+  if (pendingPickup) return; // waiting for swap modal
+
+  // Conveyor push
+  const tileType = s.tiles[p.y][p.x];
+  if (tileType === 'conveyor') {
+    const cd = s.conveyorDirs[p.y][p.x];
+    if (cd) {
+      const def = DIRS[cd];
+      const tx = p.x + def.dx, ty = p.y + def.dy;
+      if (inBounds(tx, ty) && !s.walls[p.y][p.x][cd] && !s.enemies.some(e => e.x===tx && e.y===ty)) {
+        p.x = tx; p.y = ty;
+        if (handleLandOn(p)) return;
+        if (pendingPickup) return;
+      }
+    }
+  }
+
+  if (!handleExit()) return;
+  finishTurn();
+}
+
+function handleExit() {
+  const s = state;
+  const p = s.player;
+  if (!same(s.exit, p)) return true;
+
+  if (s.enemies.some(e => e.type === 'boss')) {
+    showMessage(t('exitBossAlive'));
+    return true;
+  }
+
+  // Key requirement
+  if (s.keysNeeded > 0) {
+    const keysInInv = s.player.inv.filter(x => x === 'key').length;
+    if (keysInInv < s.keysNeeded) {
+      showMessage(t('exitLocked'));
+      return true;
+    }
+    // Consume required number of keys
+    let remaining = s.keysNeeded;
+    for (let i = 0; i < s.player.inv.length && remaining > 0; i++) {
+      if (s.player.inv[i] === 'key') { s.player.inv[i] = null; remaining--; }
+    }
+    s.tiles[s.exit.y][s.exit.x] = 'normal';
+    s.keysNeeded = 0;
+  }
+
+  s.transitioning = true;
+  showMessage(t('roundCompleted', s.round));
+  render(); renderInventory(); updateHUD();
+  setTimeout(() => {
+    if (s.round >= 10) openShop();
+    else { setupRound(s.round + 1); s.transitioning = false; }
+  }, 700);
+  return false;
+}
+
+function finishTurn() {
+  const s = state;
+  const p = s.player;
+  // Mud
+  if (s.tiles[p.y][p.x] === 'mud') p.skipNextTurn = true;
+  advanceMazeRegen();
+  enemyTurn();
+  render(); renderInventory(); updateHUD();
+}
+
+function handleLandOn(p) {
+  const s = state;
+  checkTeleport(p);
+  if (resolvePlayerEnemyCollision()) return true;
 
   // Mine
   const mine = s.mines.find(m => same(m, p));
   if (mine && p.onMineId !== mine.id) {
-    if (invincible) {
-      s.mines = s.mines.filter(m => m.id !== mine.id);
-      showMessage('🛡 Міна знешкоджена (тест)');
-    } else {
+    s.mines = s.mines.filter(m => m.id !== mine.id);
+    if (invincible) { showMessage(t('invincibleMine')); }
+    else if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlockedMine')); renderInventory(); }
+    else {
       s.gameOver = true;
-      showMessage('💥 Ти підірвався на міні!');
-      render(); updateHUD();
+      showMessage(t('diedMine'));
+      render(); renderInventory(); updateHUD();
       showRestart();
-      return;
+      return true;
     }
   }
 
   // Pit
-  if (s.pits.some(pit => same(pit, p))) {
-    if (invincible) {
-      showMessage('🛡 Пройшов через яму (тест)');
-    } else {
+  if (s.tiles[p.y][p.x] === 'pit') {
+    if (invincible) showMessage(t('invinciblePit'));
+    else if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlockedPit')); renderInventory(); }
+    else {
       s.gameOver = true;
-      showMessage('🕳 Ти впав у яму!');
-      render(); updateHUD();
+      showMessage(t('diedPit'));
+      render(); renderInventory(); updateHUD();
       showRestart();
-      return;
+      return true;
     }
   }
 
@@ -521,36 +1208,86 @@ function performPlayerMove(nx, ny) {
   const itemIdx = s.items.findIndex(it => same(it, p));
   if (itemIdx !== -1) {
     const item = s.items[itemIdx];
-    p.inv = item.type;
-    s.items.splice(itemIdx, 1);
-    showMessage(`Підібрано: ${ITEMS[item.type].name} ${ITEMS[item.type].emoji}`);
+    if (item.type === 'slot') {
+      s.player.invSize += 1;
+      s.player.inv.push(null);
+      s.items.splice(itemIdx, 1);
+      showMessage(t('slotGained'));
+    } else {
+      const slotIdx = emptySlotIndex();
+      if (slotIdx === -1) {
+        // inventory full — open swap modal; key is mandatory
+        pendingPickup = { worldIndex: itemIdx, type: item.type, mandatory: item.type === 'key' };
+        openSwapModal();
+        return false;
+      }
+      s.player.inv[slotIdx] = item.type;
+      s.items.splice(itemIdx, 1);
+      if (item.type === 'key') showMessage(t('gotKey'));
+      else showMessage(t('pickedUp', itemName(item.type)));
+    }
   }
+  return false;
+}
 
-  // Exit
-  if (same(s.exit, p)) {
-    s.transitioning = true;
-    showMessage(`🏁 Раунд ${s.round} пройдено!`);
-    render(); updateHUD();
-    setTimeout(() => {
-      setupRound(s.round + 1);
-      s.transitioning = false;
-    }, 700);
-    return;
+// =================== ENEMY DAMAGE ===================
+function damageEnemy(e, source) {
+  const s = state;
+  // Shield absorbs one hit (does not break for instant-death if player has it, but for enemy yes)
+  if (e.inv === 'shield') {
+    e.inv = null;
+    showMessage(t('enemyShieldBroke', enemyName(e.type)));
+    return false;
   }
-
-  // Maze regen counter
-  if (s.freezeMaze > 0) {
-    s.freezeMaze--;
-  } else {
-    s.movesSinceRegen++;
-    if (s.movesSinceRegen >= 3) regenerateMaze();
+  const enemyPos = { x: e.x, y: e.y };
+  if (e.type === 'boss') {
+    e.hp -= 1;
+    if (e.hp <= 0) {
+      const droppedItem = e.inv;
+      const idx = s.enemies.indexOf(e);
+      if (idx !== -1) s.enemies.splice(idx, 1);
+      s.killed++;
+      if (source === 'mine') showMessage(t('bossKilledMine'));
+      else if (source === 'pit') showMessage(t('bossKilledPit'));
+      else if (source === 'crossbow') showMessage(t('crossbowKillBoss'));
+      else showMessage(t('bossKilledKnife'));
+      if (droppedItem) dropItemAt(enemyPos, droppedItem);
+      return true;
+    } else {
+      e.frozen = 3;
+      if (source === 'mine') showMessage(t('bossHitMine'));
+      else if (source === 'pit') showMessage(t('bossHitPit'));
+      else if (source === 'crossbow') showMessage(t('crossbowHitBoss'));
+      else showMessage(t('bossHitNeedMore'));
+      return false;
+    }
   }
+  // Regular/patrol/sniper/ghost dies
+  const droppedItem = e.inv;
+  const idx = s.enemies.indexOf(e);
+  if (idx !== -1) s.enemies.splice(idx, 1);
+  s.killed++;
+  if (source === 'knife') showMessage(t('enemyKilledKnife'));
+  else if (source === 'knife_on_player') showMessage(t('enemyRanIntoKnife'));
+  else if (source === 'superknife') showMessage(t('superKilledEnemy'));
+  else if (source === 'mine') showMessage(t('enemyToMine'));
+  else if (source === 'pit') showMessage(t('enemyToPit'));
+  else if (source === 'crossbow') showMessage(t('crossbowKill'));
+  if (droppedItem) dropItemAt(enemyPos, droppedItem);
+  return true;
+}
 
-  // Enemy turn
-  enemyTurn();
-
-  render();
-  updateHUD();
+function dropItemAt(pos, type) {
+  const s = state;
+  // Only drop normal items that persist; shields etc. are fine
+  if (!['knife','superknife','clock','tilde','mine','stealthmine','random','shield','crossbow','amulet','restart','slot','key'].includes(type)) return;
+  // Don't drop on pit/lock cells
+  if (s.tiles[pos.y][pos.x] === 'pit' || s.tiles[pos.y][pos.x] === 'lock') return;
+  // Prevent stacking if there's already an item here
+  if (s.items.some(it => same(it, pos))) return;
+  s.items.push({ type, x: pos.x, y: pos.y });
+  s.seenItems.add(type);
+  showMessage(t('enemyDropped', itemName(type)));
 }
 
 function resolvePlayerEnemyCollision() {
@@ -558,35 +1295,48 @@ function resolvePlayerEnemyCollision() {
   const p = s.player;
   for (let i = 0; i < s.enemies.length; i++) {
     const e = s.enemies[i];
-    if (same(e, p)) {
-      if (p.inv === 'knife') {
-        s.enemies.splice(i, 1);
-        p.inv = null;
-        s.killed++;
-        showMessage('🔪 Ворога вбито ножем!');
+    if (!same(e, p)) continue;
+
+    if (e.type === 'boss') {
+      if (selectedIs('superknife')) {
+        consumeSelected();
+        damageEnemy(e, 'superknife_boss');
+        renderInventory();
         return false;
-      } else if (invincible) {
-        // Kill the enemy in test mode so player can keep moving
-        s.enemies.splice(i, 1);
-        s.killed++;
-        showMessage('🛡 Ворога вбито (тест)');
-        return false;
-      } else if (e.inv === 'knife') {
-        s.gameOver = true;
-        showMessage('💀 Ворог із ножем тебе зарізав!');
-        render(); updateHUD();
-        showRestart();
-        return true;
-      } else {
-        s.gameOver = true;
-        showMessage('💀 Ворог спіймав тебе!');
-        render(); updateHUD();
-        showRestart();
-        return true;
       }
+      if (invincible) { damageEnemy(e, 'invincible'); showMessage(t('invincibleKilled', enemyName(e.type))); return false; }
+      if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+      s.gameOver = true;
+      showMessage(t('killedByBoss'));
+      render(); renderInventory(); updateHUD();
+      showRestart();
+      return true;
     }
+
+    if (selectedIs('knife')) {
+      consumeSelected();
+      damageEnemy(e, 'knife');
+      renderInventory();
+      return false;
+    }
+    if (selectedIs('superknife')) {
+      damageEnemy(e, 'superknife');
+      return false;
+    }
+    if (invincible) { damageEnemy(e, 'invincible'); showMessage(t('invincibleKilled', enemyName(e.type))); return false; }
+    if (selectedIs('shield')) { consumeSelected(); damageEnemy(e, 'shield'); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+    s.gameOver = true;
+    showMessage(t('diedEnemy'));
+    render(); renderInventory(); updateHUD();
+    showRestart();
+    return true;
   }
   return false;
+}
+
+function damageEnemyBoss(e, source) {
+  // Legacy wrapper
+  return damageEnemy(e, source);
 }
 
 function checkTeleport(entity) {
@@ -601,162 +1351,334 @@ function useItem() {
   const s = state;
   if (s.gameOver || s.transitioning) return;
   const p = s.player;
-  if (!p.inv) { showMessage('Інвентар порожній'); return; }
+  const type = p.inv[p.selectedSlot];
+  if (!type) { showMessage(t('selectedEmpty')); return; }
 
-  switch (p.inv) {
-    case 'knife':
-      showMessage('Ніж спрацює автоматично при зіткненні');
-      return;
+  switch (type) {
+    case 'knife': showMessage(t('knifeAutoHint')); return;
+    case 'shield': showMessage(t('shieldAutoHint')); return;
+    case 'superknife': showMessage(t('superknifeAutoHint')); return;
     case 'clock':
       for (const e of s.enemies) e.frozen = Math.max(e.frozen, 3);
       s.freezeMaze = 3;
-      p.inv = null;
-      showMessage('⏰ Час зупинено на 3 ходи!');
+      consumeSelected();
+      showMessage(t('clockActivated'));
       break;
     case 'tilde':
-      pendingTilde = true;
-      showMessage('⌁ Обери напрямок, щоб зламати стіну');
+      pendingAction = 'tilde';
+      showMessage(t('tildePrompt'));
       return;
-    case 'mine': {
-      if (s.mines.some(m => same(m, p))) { showMessage('Тут вже є міна'); return; }
-      const newMine = { x: p.x, y: p.y, id: ++s.mineIdCounter, placer: 'player' };
-      s.mines.push(newMine);
-      p.onMineId = newMine.id;
-      p.inv = null;
-      showMessage('💣 Міну встановлено — зійди з неї!');
+    case 'crossbow':
+      pendingAction = 'crossbow';
+      showMessage(t('crossbowPrompt'));
+      return;
+    case 'mine':
+    case 'stealthmine': {
+      if (s.mines.some(m => same(m, p))) { showMessage(t('mineHere')); return; }
+      const m = { x: p.x, y: p.y, id: ++s.mineIdCounter, placer: 'player', stealth: type === 'stealthmine' };
+      s.mines.push(m);
+      p.onMineId = m.id;
+      consumeSelected();
+      showMessage(type === 'stealthmine' ? t('stealthminePlaced') : t('minePlaced'));
       break;
     }
     case 'random':
-      p.inv = null;
+      consumeSelected();
       regenerateMaze();
-      showMessage('🎲 Лабіринт перегенеровано!');
+      showMessage(t('randomUsed'));
+      break;
+    case 'amulet':
+      consumeSelected();
+      regenerateMaze();
+      showMessage(t('amuletUsed'));
+      break;
+    case 'restart':
+      consumeSelected();
+      showMessage(t('restartUsed'));
+      s.transitioning = true;
+      setTimeout(() => { setupRound(s.round); s.transitioning = false; }, 400);
       break;
   }
-  render();
-  updateHUD();
+  render(); renderInventory(); updateHUD();
 }
 
-// =================== ENEMY TURN ===================
+// =================== ENEMY AI ===================
+function enemyKillPlayer(msgKey) {
+  const s = state;
+  if (invincible) { showMessage(t('invincibleKilled', enemyName('regular'))); return false; }
+  if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+  s.gameOver = true;
+  showMessage(t(msgKey));
+  showRestart();
+  return true;
+}
+
+// Enemy stepped onto tile — returns true if removed from world
+function enemyStepOnto(e) {
+  const s = state;
+  // Ghost doesn't interact with pits, mines, or items at all
+  if (e.type === 'ghost') return false;
+
+  // Pit: for boss -1 HP; others die
+  if (s.tiles[e.y][e.x] === 'pit') {
+    return damageEnemy(e, 'pit');
+  }
+  // Mine
+  const mine = s.mines.find(m => same(m, e));
+  if (mine && mine.id !== e.onMineId) {
+    s.mines = s.mines.filter(m => m.id !== mine.id);
+    return damageEnemy(e, 'mine');
+  }
+  // Pick up item (but enemies can't see/pickup keys — they walk over key without taking it)
+  const itemIdx = s.items.findIndex(it => same(it, e));
+  if (itemIdx !== -1 && !e.inv) {
+    const item = s.items[itemIdx];
+    if (item.type === 'key') {
+      // Keys are invisible to enemies — they walk over, key stays
+    } else {
+      // Only pick up tactically useful items for enemy
+      const usable = ['knife','tilde','mine','stealthmine','random','shield'];
+      if (usable.includes(item.type)) {
+        e.inv = item.type;
+        s.items.splice(itemIdx, 1);
+      } else if (['clock','superknife','slot','crossbow','amulet','restart'].includes(item.type)) {
+        s.items.splice(itemIdx, 1); // destroyed by enemy walking over
+      }
+    }
+  }
+  return false;
+}
+
+function enemyCollidesWithPlayer(e) {
+  const s = state;
+  const p = s.player;
+  if (!same(e, p)) return false;
+
+  if (e.type === 'boss') {
+    if (selectedIs('superknife')) {
+      consumeSelected();
+      damageEnemy(e, 'superknife_boss');
+      renderInventory();
+      return true;
+    }
+    if (enemyKillPlayer('killedByBoss')) return true;
+    // player survived via shield/invincible, kill the enemy? No, boss continues
+    return true;
+  }
+
+  if (selectedIs('knife')) {
+    consumeSelected();
+    damageEnemy(e, 'knife_on_player');
+    renderInventory();
+    return true;
+  }
+  if (selectedIs('superknife')) {
+    damageEnemy(e, 'superknife');
+    return true;
+  }
+  if (enemyKillPlayer('diedEnemy')) return true;
+  // Player had shield — enemy kills itself on impact? For fairness, shield only blocks, enemy survives
+  return true;
+}
+
 function enemyTurn() {
   const s = state;
   if (s.gameOver) return;
   const p = s.player;
 
+  // Snipers shoot first (stationary)
+  for (const e of s.enemies) {
+    if (e.type !== 'sniper') continue;
+    if (e.frozen > 0) continue;
+    const blockers = s.enemies.filter(x => x !== e);
+    if (hasLineOfSight({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, blockers)) {
+      if (enemyKillPlayer('diedSniper')) return;
+    }
+  }
+
   for (let i = s.enemies.length - 1; i >= 0; i--) {
     const e = s.enemies[i];
     if (!e) continue;
-
-    // Frozen enemies skip
     if (e.frozen > 0) { e.frozen--; continue; }
+    if (e.type === 'sniper') continue;
 
-    // Enemy AI: maybe place mine if player is very close
-    if (e.inv === 'mine' && manhattan(e, p) <= 2 && Math.random() < 0.6) {
-      if (!s.mines.some(m => same(m, e))) {
-        const newMine = { x: e.x, y: e.y, id: ++s.mineIdCounter, placer: 'enemy' };
-        s.mines.push(newMine);
-        e.onMineId = newMine.id;
-        e.inv = null;
-        // Skip movement this turn
-        continue;
+    // Mud: if enemy is currently on mud, set skip for next turn; also skip if flagged
+    if (e.skipNextTurn) { e.skipNextTurn = false; showMessage(t('stuckInMudEnemy')); continue; }
+
+    if (e.type === 'ghost') {
+      e.skipNext = !e.skipNext;
+      if (!e.skipNext) continue;
+    }
+
+    // Rational item use
+    tryEnemyUseItem(e);
+
+    let next = null;
+    if (e.type === 'patrol') {
+      const def = DIRS[e.dir];
+      const nx = e.x + def.dx, ny = e.y + def.dy;
+      // Patrol avoids walking into pits
+      const isPit = inBounds(nx, ny) && s.tiles[ny][nx] === 'pit';
+      if (!inBounds(nx, ny) || s.walls[e.y][e.x][e.dir] || isPit) {
+        e.dir = DIRS[e.dir].opp;
+      } else {
+        next = { x: nx, y: ny };
       }
-    }
+    } else if (e.type === 'ghost') {
+      const blockedByOthers = s.enemies.filter(x => x !== e).map(x => ({x: x.x, y: x.y}));
+      next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, { ignoreWalls: true, blockedCells: blockedByOthers });
+    } else if (e.type === 'regular' || e.type === 'boss') {
+      const blockedByOthers = s.enemies.filter(x => x !== e).map(x => ({x: x.x, y: x.y}));
+      next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, { avoidPits: true, avoidMines: true, blockedCells: blockedByOthers, useTeleport: true });
 
-    // Enemy uses random item occasionally
-    if (e.inv === 'random' && Math.random() < 0.3) {
-      e.inv = null;
-      regenerateMaze();
-      showMessage('🎲 Ворог перегенерував лабіринт!');
-    }
-
-    // Pathfind to player
-    let next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls);
-
-    // Enemy uses tilde to break wall toward player if no path or path is long
-    if (e.inv === 'tilde' && Math.random() < 0.5) {
-      // Break a wall in direction roughly toward player
-      const dx = p.x - e.x, dy = p.y - e.y;
-      let preferDir = null;
-      if (Math.abs(dx) > Math.abs(dy)) preferDir = dx > 0 ? 'e' : 'w';
-      else preferDir = dy > 0 ? 's' : 'n';
-      if (preferDir && s.walls[e.y][e.x][preferDir]) {
-        const def = DIRS[preferDir];
-        const nx = e.x + def.dx, ny = e.y + def.dy;
-        if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
-          s.walls[e.y][e.x][preferDir] = false;
-          s.walls[ny][nx][def.opp] = false;
-          e.inv = null;
-          next = { x: nx, y: ny };
-          showMessage('⌁ Ворог зламав стіну!');
+      // Tilde usage: only if direct path blocked and breaking wall helps
+      if (!next && e.inv === 'tilde') {
+        const dx = p.x - e.x, dy = p.y - e.y;
+        let preferDir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n');
+        if (s.walls[e.y][e.x][preferDir]) {
+          const def = DIRS[preferDir];
+          const nx = e.x + def.dx, ny = e.y + def.dy;
+          if (inBounds(nx, ny)) {
+            s.walls[e.y][e.x][preferDir] = false;
+            s.walls[ny][nx][def.opp] = false;
+            e.inv = null;
+            next = { x: nx, y: ny };
+            showMessage(t('enemyBrokeWall'));
+          }
         }
+      }
+
+      // Random: only if cannot reach player at all
+      if (!next && e.inv === 'random') {
+        e.inv = null;
+        regenerateMaze();
+        showMessage(t('enemyUsedRandom'));
+        // Try again after regen
+        next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, { avoidPits: true, avoidMines: true });
       }
     }
 
     if (!next) continue;
 
     if (e.onMineId !== null) e.onMineId = null;
-    e.x = next.x;
-    e.y = next.y;
+    e.x = next.x; e.y = next.y;
 
-    // Teleport
     checkTeleport(e);
+    if (enemyStepOnto(e)) continue;
+    // Mud effect
+    if (s.tiles[e.y][e.x] === 'mud') e.skipNextTurn = true;
+    if (enemyCollidesWithPlayer(e)) { if (s.gameOver) return; continue; }
+  }
+}
 
-    // Pit
-    if (s.pits.some(pit => same(pit, e))) {
-      s.enemies.splice(i, 1);
-      s.killed++;
-      showMessage('Ворог впав у яму! 🕳');
-      continue;
-    }
-
-    // Mine
-    const mine = s.mines.find(m => same(m, e));
-    if (mine && mine.id !== e.onMineId) {
-      s.enemies.splice(i, 1);
-      s.mines = s.mines.filter(m => m.id !== mine.id);
-      s.killed++;
-      showMessage('💥 Ворог підірвався на міні!');
-      continue;
-    }
-
-    // Pick up item
-    const itemIdx = s.items.findIndex(it => same(it, e));
-    if (itemIdx !== -1) {
-      const item = s.items[itemIdx];
-      if (item.type === 'clock') {
-        // Enemy doesn't benefit — item vanishes
-        s.items.splice(itemIdx, 1);
-      } else {
-        e.inv = item.type;
-        s.items.splice(itemIdx, 1);
-      }
-    }
-
-    // Collision with player
-    if (same(e, p)) {
-      if (p.inv === 'knife') {
-        s.enemies.splice(i, 1);
-        p.inv = null;
-        s.killed++;
-        showMessage('🔪 Ворог наткнувся на ніж!');
-        continue;
-      } else if (invincible) {
-        s.enemies.splice(i, 1);
-        s.killed++;
-        showMessage('🛡 Ворог знищений (тест)');
-        continue;
-      } else if (e.inv === 'knife') {
-        s.gameOver = true;
-        showMessage('💀 Ворог із ножем тебе зарізав!');
-        showRestart();
-        return;
-      } else {
-        s.gameOver = true;
-        showMessage('💀 Ворог спіймав тебе!');
-        showRestart();
-        return;
+function tryEnemyUseItem(e) {
+  const s = state;
+  const p = s.player;
+  // Mine: only place if player is exactly 1 cell away AND on a cell adjacent to enemy via open path
+  if ((e.inv === 'mine' || e.inv === 'stealthmine') && manhattan(e, p) === 1) {
+    // Player must be able to reach enemy's current cell (will step on mine next)
+    const reachable = bfsNext({x:p.x, y:p.y}, {x:e.x, y:e.y}, s.walls);
+    if (reachable && reachable.x === e.x && reachable.y === e.y) {
+      if (!s.mines.some(m => same(m, e))) {
+        const m = { x: e.x, y: e.y, id: ++s.mineIdCounter, placer: 'enemy', stealth: e.inv === 'stealthmine' };
+        s.mines.push(m);
+        e.onMineId = m.id;
+        e.inv = null;
       }
     }
   }
+}
+
+// =================== SHOP ===================
+function openShop() {
+  const s = state;
+  const modal = document.getElementById('modal');
+  document.getElementById('modalTitle').textContent = t('shopTitle', s.round);
+  const pool = ['knife','shield','clock','tilde','crossbow','amulet','restart','random','mine','stealthmine','slot'];
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const choices = shuffled.slice(0, 3);
+  const c = document.getElementById('modalContent');
+  let html = `<div>${t('shopPrompt')}</div><div class="shop-choices">`;
+  for (const type of choices) {
+    html += `<div class="shop-choice" data-item="${type}"><div class="shop-emoji">${itemEmoji(type)}</div><div class="shop-name">${itemName(type)}</div><div class="shop-desc">${t('hint_' + type)}</div></div>`;
+  }
+  html += `</div><button class="shop-skip">${t('shopSkip')}</button>`;
+  c.innerHTML = html;
+  c.querySelectorAll('.shop-choice').forEach(el => {
+    el.addEventListener('click', () => {
+      const type = el.getAttribute('data-item');
+      if (type === 'slot') {
+        s.player.invSize += 1;
+        s.player.inv.push(null);
+        showMessage(t('slotGained'));
+      } else {
+        const slotIdx = emptySlotIndex();
+        if (slotIdx === -1) {
+          // Full - put into first selected slot replacing
+          s.player.inv[s.player.selectedSlot] = type;
+        } else {
+          s.player.inv[slotIdx] = type;
+        }
+        showMessage(t('shopReceived', itemName(type)));
+      }
+      s.seenItems.add(type);
+      closeShop();
+    });
+  });
+  c.querySelector('.shop-skip').addEventListener('click', closeShop);
+  modal.classList.add('open');
+}
+function closeShop() {
+  const s = state;
+  document.getElementById('modal').classList.remove('open');
+  setupRound(s.round + 1);
+  s.transitioning = false;
+}
+
+// =================== SWAP MODAL ===================
+function openSwapModal() {
+  const s = state;
+  s.transitioning = true;
+  const modal = document.getElementById('modal');
+  document.getElementById('modalTitle').textContent = t('swapTitle');
+  const c = document.getElementById('modalContent');
+  const newType = pendingPickup.type;
+  const mandatory = pendingPickup.mandatory;
+  let html = `<div style="font-size:12px;color:#555;margin-bottom:6px">${mandatory ? t('swapMandatory') : t('swapPrompt')}</div>`;
+  html += `<div class="swap-section-label">${t('newItem')}:</div>`;
+  html += `<div class="swap-choices"><div class="swap-choice swap-new"><div class="swap-emoji">${itemEmoji(newType)}</div><div class="swap-name">${itemName(newType)}</div></div></div>`;
+  html += `<div class="swap-section-label">${t('replaceSlot')}:</div><div class="swap-choices">`;
+  for (let i = 0; i < s.player.inv.length; i++) {
+    const cur = s.player.inv[i];
+    if (!cur) continue;
+    html += `<div class="swap-choice" data-slot="${i}" title="${itemName(cur)}"><div class="swap-emoji">${itemEmoji(cur)}</div><div class="swap-name">${i+1}</div></div>`;
+  }
+  html += `</div>`;
+  if (!mandatory) html += `<button class="swap-skip">${t('swapSkip')}</button>`;
+  c.innerHTML = html;
+
+  c.querySelectorAll('.swap-choice[data-slot]').forEach(el => {
+    el.addEventListener('click', () => {
+      const slotIdx = parseInt(el.getAttribute('data-slot'), 10);
+      s.player.inv[slotIdx] = pendingPickup.type;
+      s.items.splice(pendingPickup.worldIndex, 1);
+      if (pendingPickup.type === 'key') showMessage(t('gotKey'));
+      else showMessage(t('pickedUp', itemName(pendingPickup.type)));
+      closeSwap(true);
+    });
+  });
+  const skipBtn = c.querySelector('.swap-skip');
+  if (skipBtn) skipBtn.addEventListener('click', () => closeSwap(false));
+  modal.classList.add('open');
+}
+function closeSwap(didPickup) {
+  const s = state;
+  pendingPickup = null;
+  document.getElementById('modal').classList.remove('open');
+  s.transitioning = false;
+  // Continue the interrupted turn: exit check, mud, regen, enemy turn
+  if (!handleExit()) { render(); renderInventory(); updateHUD(); return; }
+  finishTurn();
 }
 
 // =================== RENDER ===================
@@ -765,150 +1687,282 @@ let canvas, ctx;
 function render() {
   const s = state;
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-
-  // White playing field
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(PAD, PAD, GRID * CELL, GRID * CELL);
 
-  // Exit (green)
-  ctx.fillStyle = '#27ae60';
-  ctx.fillRect(PAD + s.exit.x * CELL + 3, PAD + s.exit.y * CELL + 3, CELL - 6, CELL - 6);
-
-  // Pits (black squares)
-  ctx.fillStyle = '#000';
-  for (const pit of s.pits) {
-    ctx.fillRect(PAD + pit.x * CELL + 4, PAD + pit.y * CELL + 4, CELL - 8, CELL - 8);
+  // Tiles
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const tt = s.tiles[y][x];
+      const px = PAD + x * CELL, py = PAD + y * CELL;
+      if (tt === 'ice') { ctx.fillStyle = '#d6ecff'; ctx.fillRect(px, py, CELL, CELL); }
+      else if (tt === 'mud') { ctx.fillStyle = '#b08968'; ctx.fillRect(px, py, CELL, CELL); }
+      else if (tt === 'conveyor') {
+        ctx.fillStyle = '#eef2ff';
+        ctx.fillRect(px, py, CELL, CELL);
+        const cd = s.conveyorDirs[y][x];
+        ctx.fillStyle = '#5c6bc0';
+        ctx.font = `${Math.floor(CELL*0.6)}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const arrow = cd === 'n' ? '↑' : cd === 'e' ? '→' : cd === 's' ? '↓' : '←';
+        ctx.fillText(arrow, px + CELL/2, py + CELL/2 + 1);
+      } else if (tt === 'lock') {
+        ctx.fillStyle = '#27ae60';
+        ctx.beginPath();
+        ctx.arc(px + CELL/2, py + CELL/2, CELL/2 - 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `${Math.floor(CELL*0.5)}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🔒', px + CELL/2, py + CELL/2 + 1);
+      }
+    }
   }
 
-  // Teleport cells (blue ring)
+  // Exit as green circle; special overlays for boss/lock
+  if (s.tiles[s.exit.y][s.exit.x] !== 'lock') {
+    ctx.fillStyle = '#27ae60';
+    ctx.beginPath();
+    ctx.arc(PAD + s.exit.x * CELL + CELL/2, PAD + s.exit.y * CELL + CELL/2, CELL/2 - 3, 0, Math.PI * 2);
+    ctx.fill();
+    // Boss alive — show 👹 inside the exit circle
+    if (s.enemies.some(e => e.type === 'boss')) {
+      ctx.font = `${Math.floor(CELL * 0.5)}px -apple-system, "Segoe UI Emoji", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('👹', PAD + s.exit.x * CELL + CELL/2, PAD + s.exit.y * CELL + CELL/2 + 1);
+    }
+  }
+
+  // Pits
+  ctx.fillStyle = '#000';
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      if (s.tiles[y][x] === 'pit') {
+        ctx.fillRect(PAD + x * CELL + 4, PAD + y * CELL + 4, CELL - 8, CELL - 8);
+      }
+    }
+  }
+
+  // Teleports
   if (s.teleports.length === 2) {
     ctx.strokeStyle = '#5dade2';
     ctx.fillStyle = '#d6eaf8';
     ctx.lineWidth = 2;
-    for (const t of s.teleports) {
-      const cx = PAD + t.x * CELL + CELL/2;
-      const cy = PAD + t.y * CELL + CELL/2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, CELL * 0.32, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+    for (const tp of s.teleports) {
+      const cx = PAD + tp.x * CELL + CELL/2, cy = PAD + tp.y * CELL + CELL/2;
+      ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.32, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
     }
   }
 
   // Mines
-  ctx.fillStyle = '#1a1a1a';
   for (const m of s.mines) {
-    const cx = PAD + m.x * CELL + CELL/2;
-    const cy = PAD + m.y * CELL + CELL/2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, CELL * 0.22, 0, Math.PI * 2);
-    ctx.fill();
-    // little spike marks
-    ctx.strokeStyle = '#1a1a1a';
-    ctx.lineWidth = 2;
-    for (let a = 0; a < 4; a++) {
-      const ang = a * Math.PI / 2 + Math.PI / 4;
+    const cx = PAD + m.x * CELL + CELL/2, cy = PAD + m.y * CELL + CELL/2;
+    if (m.stealth) {
+      // Stealth mine — dashed / pattern to distinguish for player
+      ctx.fillStyle = '#4a4a4a';
+      ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#888';
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.30, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = `${Math.floor(CELL * 0.3)}px sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('?', cx, cy + 1);
+    } else {
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2;
+      for (let a = 0; a < 4; a++) {
+        const ang = a * Math.PI / 2 + Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(ang) * CELL * 0.22, cy + Math.sin(ang) * CELL * 0.22);
+        ctx.lineTo(cx + Math.cos(ang) * CELL * 0.34, cy + Math.sin(ang) * CELL * 0.34);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Items
+  ctx.fillStyle = '#000';
+  ctx.font = `${Math.floor(CELL * 0.55)}px -apple-system, "Segoe UI Emoji", sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const it of s.items) {
+    ctx.fillText(itemEmoji(it.type), PAD + it.x * CELL + CELL/2, PAD + it.y * CELL + CELL/2 + 2);
+  }
+
+  // Sniper LOS preview
+  for (const e of s.enemies) {
+    if (e.type !== 'sniper' || e.frozen > 0) continue;
+    const blockers = s.enemies.filter(x => x !== e);
+    if (hasLineOfSight({x:e.x,y:e.y}, {x:s.player.x,y:s.player.y}, s.walls, blockers)) {
+      ctx.strokeStyle = 'rgba(231,76,60,0.7)';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(ang) * CELL * 0.22, cy + Math.sin(ang) * CELL * 0.22);
-      ctx.lineTo(cx + Math.cos(ang) * CELL * 0.34, cy + Math.sin(ang) * CELL * 0.34);
+      ctx.moveTo(PAD + e.x * CELL + CELL/2, PAD + e.y * CELL + CELL/2);
+      ctx.lineTo(PAD + s.player.x * CELL + CELL/2, PAD + s.player.y * CELL + CELL/2);
       ctx.stroke();
     }
   }
 
-  // Items (emoji)
-  ctx.font = `${Math.floor(CELL * 0.55)}px -apple-system, "Segoe UI Emoji", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  for (const it of s.items) {
-    ctx.fillText(ITEMS[it.type].emoji, PAD + it.x * CELL + CELL/2, PAD + it.y * CELL + CELL/2 + 2);
-  }
-
-  // Enemies (red squares)
+  // Enemies
   for (const e of s.enemies) {
-    ctx.fillStyle = e.frozen > 0 ? '#a0c4ff' : '#e74c3c';
-    ctx.fillRect(PAD + e.x * CELL + 5, PAD + e.y * CELL + 5, CELL - 10, CELL - 10);
-    if (e.inv) {
+    const cx = PAD + e.x * CELL + CELL/2, cy = PAD + e.y * CELL + CELL/2;
+    if (e.type === 'boss') {
+      ctx.fillStyle = e.frozen > 0 ? '#a29bfe' : '#6c5ce7';
+      ctx.fillRect(PAD + e.x * CELL + 2, PAD + e.y * CELL + 2, CELL - 4, CELL - 4);
       ctx.font = `${Math.floor(CELL * 0.3)}px sans-serif`;
       ctx.fillStyle = '#fff';
-      ctx.fillText(ITEMS[e.inv].emoji, PAD + e.x * CELL + CELL/2, PAD + e.y * CELL + CELL/2 + 1);
-    }
-    if (e.frozen > 0) {
-      ctx.strokeStyle = '#2874e7';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(PAD + e.x * CELL + 4, PAD + e.y * CELL + 4, CELL - 8, CELL - 8);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('♥' + e.hp, cx, cy + 1);
+      if (e.frozen > 0) { ctx.strokeStyle = '#2874e7'; ctx.lineWidth = 3; ctx.strokeRect(PAD + e.x*CELL+2, PAD + e.y*CELL+2, CELL-4, CELL-4); }
+    } else {
+      let fill = '#e74c3c';
+      if (e.type === 'patrol') fill = '#e67e22';
+      else if (e.type === 'sniper') fill = '#f5a05c'; // lighter tone than patrol
+      else if (e.type === 'ghost') fill = '#bdc3c7';
+      if (e.frozen > 0) fill = '#a0c4ff';
+      ctx.fillStyle = fill;
+      if (e.type === 'ghost') {
+        ctx.globalAlpha = 0.7;
+        ctx.fillRect(PAD + e.x*CELL + 5, PAD + e.y*CELL + 5, CELL-10, CELL-10);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.fillRect(PAD + e.x*CELL + 5, PAD + e.y*CELL + 5, CELL-10, CELL-10);
+      }
+      // Inventory icon (takes priority over type badge)
+      if (e.inv) {
+        ctx.font = `${Math.floor(CELL * 0.34)}px -apple-system, "Segoe UI Emoji", sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(itemEmoji(e.inv), cx, cy + 1);
+      } else if (e.type === 'patrol') {
+        // Draw double-headed arrow manually to ensure visibility
+        ctx.strokeStyle = '#fff';
+        ctx.fillStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        const armLen = CELL * 0.22;
+        const headSize = CELL * 0.09;
+        // horizontal line
+        ctx.beginPath();
+        ctx.moveTo(cx - armLen, cy);
+        ctx.lineTo(cx + armLen, cy);
+        ctx.stroke();
+        // left arrow head
+        ctx.beginPath();
+        ctx.moveTo(cx - armLen, cy);
+        ctx.lineTo(cx - armLen + headSize, cy - headSize);
+        ctx.lineTo(cx - armLen + headSize, cy + headSize);
+        ctx.closePath(); ctx.fill();
+        // right arrow head
+        ctx.beginPath();
+        ctx.moveTo(cx + armLen, cy);
+        ctx.lineTo(cx + armLen - headSize, cy - headSize);
+        ctx.lineTo(cx + armLen - headSize, cy + headSize);
+        ctx.closePath(); ctx.fill();
+      } else if (e.type === 'sniper') {
+        ctx.font = `${Math.floor(CELL * 0.38)}px -apple-system, "Segoe UI Emoji", sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🎯', cx, cy + 1);
+      } else if (e.type === 'ghost') {
+        ctx.font = `${Math.floor(CELL * 0.38)}px -apple-system, "Segoe UI Emoji", sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('👻', cx, cy + 1);
+      }
+      if (e.frozen > 0 && e.type !== 'boss') {
+        ctx.strokeStyle = '#2874e7'; ctx.lineWidth = 2;
+        ctx.strokeRect(PAD + e.x*CELL + 4, PAD + e.y*CELL + 4, CELL-8, CELL-8);
+      }
     }
   }
 
-  // Player (blue circle)
-  const pcx = PAD + s.player.x * CELL + CELL/2;
-  const pcy = PAD + s.player.y * CELL + CELL/2;
+  // Player
+  const pcx = PAD + s.player.x * CELL + CELL/2, pcy = PAD + s.player.y * CELL + CELL/2;
   if (invincible) {
-    ctx.strokeStyle = '#f39c12';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(pcx, pcy, CELL * 0.45, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(pcx, pcy, CELL * 0.45, 0, Math.PI * 2); ctx.stroke();
   }
-  // Tilt cooldown indicator (shrinking ring)
   if (control === 'tilt') {
     const remaining = tiltCooldown - Date.now();
     if (remaining > 0) {
       const frac = remaining / 2000;
-      ctx.strokeStyle = 'rgba(128, 128, 128, 0.6)';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(128,128,128,0.6)'; ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(pcx, pcy, CELL * 0.45, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+      ctx.arc(pcx, pcy, CELL * 0.45, -Math.PI/2, -Math.PI/2 + Math.PI*2*frac);
       ctx.stroke();
     }
   }
   ctx.fillStyle = '#2874e7';
-  ctx.beginPath();
-  ctx.arc(pcx, pcy, CELL * 0.36, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(pcx, pcy, CELL * 0.36, 0, Math.PI * 2); ctx.fill();
+
+  const sel = selectedItem();
+  if (sel) {
+    ctx.font = `${Math.floor(CELL * 0.4)}px -apple-system, "Segoe UI Emoji", sans-serif`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(itemEmoji(sel), pcx, pcy + 1);
+  }
 
   // Walls
   ctx.strokeStyle = '#000';
   ctx.lineCap = 'square';
-
-  // Inner walls
   ctx.lineWidth = 2;
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
-      const cx = PAD + x * CELL;
-      const cy = PAD + y * CELL;
+      const cx = PAD + x * CELL, cy = PAD + y * CELL;
       const w = s.walls[y][x];
-      if (w.n && y > 0) {
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + CELL, cy);
-        ctx.stroke();
-      }
-      if (w.w && x > 0) {
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx, cy + CELL);
-        ctx.stroke();
-      }
+      if (w.n && y > 0) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + CELL, cy); ctx.stroke(); }
+      if (w.w && x > 0) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + CELL); ctx.stroke(); }
     }
   }
-
-  // Outer border (thick)
   ctx.lineWidth = 3;
   ctx.strokeRect(PAD, PAD, GRID * CELL, GRID * CELL);
+
+  // Fog
+  if (s.fogOfWar) {
+    const fogR = FOG_RADIUS_CELLS * CELL;
+    const grad = ctx.createRadialGradient(pcx, pcy, fogR * 0.7, pcx, pcy, fogR);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.88)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(PAD, PAD, GRID * CELL, GRID * CELL);
+  }
+
+  const keysHeld = s.player.inv.filter(x => x === 'key').length;
+  if (s.keysNeeded > 0) {
+    ctx.font = `14px sans-serif`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#111';
+    ctx.fillText(`🔑 ${keysHeld}/${s.keysNeeded}`, PAD + 4, PAD + 4);
+  }
+}
+
+function renderInventory() {
+  const s = state;
+  const container = document.getElementById('invSlots');
+  container.innerHTML = '';
+  for (let i = 0; i < s.player.inv.length; i++) {
+    const item = s.player.inv[i];
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (item ? '' : ' empty') + (i === s.player.selectedSlot ? ' selected' : '');
+    slot.innerHTML = `<span class="idx">${i < 9 ? (i+1) : ''}</span>${item ? itemEmoji(item) : '·'}`;
+    slot.title = item ? `${itemName(item)} — ${t('hint_' + item)}` : '';
+    slot.addEventListener('click', () => { state.player.selectedSlot = i; renderInventory(); render(); });
+    container.appendChild(slot);
+  }
+  const amu = amuletCount();
+  const lbl = document.getElementById('invLabel');
+  lbl.textContent = amu > 0 ? t('invLabelAmulet', amu, 3+amu) : t('invLabel');
 }
 
 function updateHUD() {
   document.getElementById('moves').textContent = state.moves;
   document.getElementById('round').textContent = state.round;
   document.getElementById('killed').textContent = state.killed;
-  const inv = state.player.inv;
-  if (inv) {
-    document.getElementById('invIcon').textContent = ITEMS[inv].emoji;
-    document.getElementById('invName').textContent = ITEMS[inv].name;
-  } else {
-    document.getElementById('invIcon').textContent = '—';
-    document.getElementById('invName').textContent = 'порожньо';
-  }
 }
 
 let msgTimer = null;
@@ -916,17 +1970,51 @@ function showMessage(text) {
   const el = document.getElementById('message');
   el.textContent = text;
   if (msgTimer) clearTimeout(msgTimer);
-  msgTimer = setTimeout(() => { el.textContent = ''; }, 2500);
+  msgTimer = setTimeout(() => { el.textContent = ''; }, 2800);
 }
+function showRestart() { document.getElementById('restartBtn').style.display = 'inline-block'; }
 
-function showRestart() {
-  document.getElementById('restartBtn').style.display = 'inline-block';
+// =================== INFO MODAL ===================
+function openInfo() {
+  const s = state;
+  document.getElementById('modalTitle').textContent = t('infoTitle');
+  const c = document.getElementById('modalContent');
+  let html = '';
+  html += `<div class="info-row"><div class="info-icon">🎯</div><div class="info-body"><div class="info-title">${t('roundObjective', s.round)}</div></div></div>`;
+
+  html += `<h3>${t('enemies')}</h3>`;
+  const enemyList = [...s.seenEnemies];
+  if (!enemyList.length) html += `<div class="info-empty">${t('notSeen')}</div>`;
+  else for (const tt of enemyList) {
+    html += `<div class="info-row"><div class="info-icon">${ENEMY_META[tt].emoji}</div><div class="info-body"><div class="info-title">${enemyName(tt)}</div><div class="info-desc">${t('hint_' + tt)}</div></div></div>`;
+  }
+
+  html += `<h3>${t('items')}</h3>`;
+  const itemList = [...s.seenItems];
+  if (!itemList.length) html += `<div class="info-empty">${t('noItems')}</div>`;
+  else for (const tt of itemList) {
+    html += `<div class="info-row"><div class="info-icon">${itemEmoji(tt)}</div><div class="info-body"><div class="info-title">${itemName(tt)}</div><div class="info-desc">${t('hint_' + tt)}</div></div></div>`;
+  }
+
+  html += `<h3>${t('tiles')}</h3>`;
+  const tileList = [...s.seenTiles].filter(tn => TILE_META[tn]);
+  if (!tileList.length) html += `<div class="info-empty">${t('noTiles')}</div>`;
+  else for (const tt of tileList) {
+    html += `<div class="info-row"><div class="info-icon">${TILE_META[tt].emoji}</div><div class="info-body"><div class="info-title">${tileName(tt)}</div><div class="info-desc">${t('hint_' + tt)}</div></div></div>`;
+  }
+
+  html += `<h3>${t('controls')}</h3>`;
+  html += `<div class="info-row"><div class="info-icon">⌨️</div><div class="info-body"><div class="info-desc">${t('controlsInfo1')}</div></div></div>`;
+  html += `<div class="info-row"><div class="info-icon">📱</div><div class="info-body"><div class="info-desc">${t('controlsInfo2')}</div></div></div>`;
+  c.innerHTML = html;
+  document.getElementById('modal').classList.add('open');
 }
+function closeInfo() { document.getElementById('modal').classList.remove('open'); }
 
 // =================== INPUT ===================
 function bindKeyboard() {
   window.addEventListener('keydown', (e) => {
-    if (state.gameOver || state.transitioning) return;
+    if (!state || state.gameOver || state.transitioning) return;
     let dir = null;
     if (control === 'arrows') {
       if (e.key === 'ArrowUp') dir = 'n';
@@ -940,36 +2028,27 @@ function bindKeyboard() {
       else if (k === 'a' || k === 'ф') dir = 'w';
       else if (k === 'd' || k === 'в') dir = 'e';
     }
-    if (dir) {
-      e.preventDefault();
-      tryMovePlayer(dir);
-    } else if (e.key === ' ' || e.code === 'Space' || e.key === 'Enter') {
-      e.preventDefault();
-      useItem();
+    if (dir) { e.preventDefault(); tryMovePlayer(dir); return; }
+    if (e.key === ' ' || e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); useItem(); return; }
+    if (e.key >= '1' && e.key <= '9') {
+      const n = parseInt(e.key, 10) - 1;
+      if (n < state.player.inv.length) { state.player.selectedSlot = n; renderInventory(); render(); }
     }
   });
 }
 
 function bindTouch() {
-  let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+  let touchStartX = 0, touchStartY = 0;
   let lastTapTime = 0;
-
   canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      touchStartTime = Date.now();
-    }
+    if (e.touches.length === 1) { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }
   }, { passive: true });
-
   canvas.addEventListener('touchend', (e) => {
-    if (state.gameOver || state.transitioning) return;
+    if (!state || state.gameOver || state.transitioning) return;
     const touch = e.changedTouches[0];
     if (!touch) return;
-    const dx = touch.clientX - touchStartX;
-    const dy = touch.clientY - touchStartY;
+    const dx = touch.clientX - touchStartX, dy = touch.clientY - touchStartY;
     const isSwipe = Math.abs(dx) > 22 || Math.abs(dy) > 22;
-
     if (control === 'swipe' && isSwipe) {
       let dir;
       if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'e' : 'w';
@@ -977,31 +2056,31 @@ function bindTouch() {
       tryMovePlayer(dir);
       return;
     }
-
     if ((control === 'swipe' || control === 'tilt') && !isSwipe) {
       const now = Date.now();
-      if (now - lastTapTime < 380) {
-        useItem();
-        lastTapTime = 0;
-      } else {
-        lastTapTime = now;
-      }
+      if (now - lastTapTime < 380) { useItem(); lastTapTime = 0; }
+      else lastTapTime = now;
     }
   });
 }
 
-let tiltEventCount = 0;
-let tiltDiagnosticTimer = null;
+function startTiltAnimation() {
+  if (tiltAnimationFrame) return;
+  const tick = () => {
+    if (control !== 'tilt') { tiltAnimationFrame = null; return; }
+    if (tiltCooldown > Date.now()) { render(); tiltAnimationFrame = requestAnimationFrame(tick); }
+    else { render(); tiltAnimationFrame = null; }
+  };
+  tiltAnimationFrame = requestAnimationFrame(tick);
+}
 
 function bindTilt() {
   const handler = (e) => {
     if (control !== 'tilt') return;
-    tiltEventCount++;
     if (!state || state.gameOver || state.transitioning) return;
     const now = Date.now();
     if (now < tiltCooldown) return;
-    const beta = e.beta || 0;
-    const gamma = e.gamma || 0;
+    const beta = e.beta || 0, gamma = e.gamma || 0;
     const threshold = 30;
     const b = beta - 30;
     let dir = null;
@@ -1012,85 +2091,56 @@ function bindTilt() {
       if (b > threshold) dir = 's';
       else if (b < -threshold) dir = 'n';
     }
-    if (dir) {
-      tiltCooldown = now + 2000;
-      tryMovePlayer(dir);
-      startTiltAnimation();
-    }
+    if (dir) { tiltCooldown = now + 2000; tryMovePlayer(dir); startTiltAnimation(); }
   };
   window.addEventListener('deviceorientation', handler);
-  // Fallback for some Android devices
   window.addEventListener('deviceorientationabsolute', handler);
-}
-
-function diagnoseTilt() {
-  tiltEventCount = 0;
-  if (tiltDiagnosticTimer) clearTimeout(tiltDiagnosticTimer);
-  tiltDiagnosticTimer = setTimeout(() => {
-    if (control !== 'tilt') return;
-    if (tiltEventCount === 0) {
-      if (!window.isSecureContext) {
-        showMessage('⚠ Потрібен HTTPS або localhost для датчика нахилу');
-      } else {
-        showMessage('⚠ Датчик нахилу не відповідає. Перевір дозволи в браузері');
-      }
-    }
-  }, 2500);
-}
-
-let tiltAnimationFrame = null;
-function startTiltAnimation() {
-  if (tiltAnimationFrame) return;
-  const tick = () => {
-    if (control !== 'tilt') { tiltAnimationFrame = null; return; }
-    if (tiltCooldown > Date.now()) {
-      render();
-      tiltAnimationFrame = requestAnimationFrame(tick);
-    } else {
-      render();
-      tiltAnimationFrame = null;
-    }
-  };
-  tiltAnimationFrame = requestAnimationFrame(tick);
 }
 
 function toggleInvincible() {
   invincible = !invincible;
   const btn = document.getElementById('godBtn');
   btn.classList.toggle('active', invincible);
-  btn.textContent = invincible ? '🛡 Невразливість: ON' : '🛡 Невразливість: OFF';
-  showMessage(invincible ? '🛡 Тестовий режим увімкнено' : 'Тестовий режим вимкнено');
+  btn.textContent = invincible ? t('godOn') : t('godOff');
+  showMessage(invincible ? t('godmodeOn') : t('godmodeOff'));
   render();
+}
+
+function cycleControl() {
+  const cycle = IS_MOBILE ? CONTROL_CYCLE_MOBILE : CONTROL_CYCLE_DESKTOP;
+  const idx = cycle.indexOf(control);
+  const next = cycle[(idx + 1) % cycle.length];
+  setControl(next);
 }
 
 function setControl(c) {
   control = c;
-  pendingTilde = false;
-  document.querySelectorAll('#controls button[data-ctrl]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.ctrl === c);
-  });
+  pendingAction = null;
+  document.getElementById('ctrlBtn').textContent = controlLabel(c);
   if (c === 'tilt') {
-    if (!window.isSecureContext) {
-      showMessage('⚠ Нахил працює тільки на HTTPS або localhost. Зараз — file://');
-      return;
-    }
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
+    if (!window.isSecureContext) { showMessage(t('tiltHttpsRequired')); return; }
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission().then(p => {
-        if (p !== 'granted') showMessage('Доступ до акселерометра відхилено');
-        else { showMessage('Нахили пристрій для руху, подвійний тап — використати'); diagnoseTilt(); }
-      }).catch(() => showMessage('Не вдалось активувати датчик нахилу'));
-    } else {
-      showMessage('Нахили пристрій для руху, подвійний тап — використати');
-      diagnoseTilt();
-    }
-  } else if (c === 'swipe') {
-    showMessage('Свайп для руху, подвійний тап — використати');
-  } else if (c === 'wasd') {
-    showMessage('WASD для руху, пробіл — використати');
-  } else {
-    showMessage('Стрілки для руху, пробіл — використати');
-  }
+        if (p !== 'granted') showMessage(t('tiltPermDenied'));
+        else showMessage(t('tiltPrompt'));
+      }).catch(() => showMessage(t('tiltNotResponding')));
+    } else showMessage(t('tiltPrompt'));
+  } else if (c === 'swipe') showMessage(t('swipeHint'));
+  else if (c === 'wasd') showMessage(t('wasdHint'));
+  else showMessage(t('arrowsHint'));
+}
+
+// =================== LABELS ===================
+function applyLabels() {
+  document.getElementById('gameTitle').textContent = t('title');
+  document.title = t('title');
+  document.getElementById('lblMoves').textContent = t('moves');
+  document.getElementById('lblRound').textContent = t('round');
+  document.getElementById('lblKilled').textContent = t('killed');
+  document.getElementById('useBtn').textContent = t('use');
+  document.getElementById('infoBtn').textContent = t('info');
+  document.getElementById('godBtn').textContent = invincible ? t('godOn') : t('godOff');
+  document.getElementById('restartBtn').textContent = t('newGame');
 }
 
 // =================== INIT ===================
@@ -1100,10 +2150,26 @@ function init() {
   canvas.height = CANVAS_SIZE;
   ctx = canvas.getContext('2d');
 
-  document.querySelectorAll('#controls button[data-ctrl]').forEach(btn => {
-    btn.addEventListener('click', () => setControl(btn.dataset.ctrl));
-  });
+  applyLabels();
+
+  // Default control by device
+  const defaultControl = IS_MOBILE ? 'swipe' : 'arrows';
+  control = defaultControl;
+  document.getElementById('ctrlBtn').textContent = controlLabel(control);
+
+  document.getElementById('ctrlBtn').addEventListener('click', cycleControl);
   document.getElementById('useBtn').addEventListener('click', useItem);
+  document.getElementById('infoBtn').addEventListener('click', openInfo);
+  document.getElementById('modalClose').addEventListener('click', () => {
+    // Don't allow close while shop or swap is active
+    if (pendingPickup || (state && state.transitioning)) return;
+    document.getElementById('modal').classList.remove('open');
+  });
+  document.getElementById('modal').addEventListener('click', (e) => {
+    if (e.target.id !== 'modal') return;
+    if (pendingPickup || (state && state.transitioning)) return;
+    document.getElementById('modal').classList.remove('open');
+  });
   document.getElementById('godBtn').addEventListener('click', toggleInvincible);
   document.getElementById('restartBtn').addEventListener('click', () => {
     document.getElementById('restartBtn').style.display = 'none';
