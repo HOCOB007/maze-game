@@ -20,7 +20,10 @@
   #objective { padding: 6px 12px; background: #fff8e1; border: 1px solid #ffd54f; border-radius: 6px; font-size: 13px; text-align: center; max-width: 460px; line-height: 1.35; }
   #tips { display: flex; flex-direction: column; gap: 4px; max-width: 460px; width: 100%; }
   .tip { padding: 5px 10px; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; font-size: 12px; line-height: 1.3; }
-  canvas { background: #fff; touch-action: none; max-width: 100%; height: auto; display: block; }
+  #canvasWrap { perspective: 1400px; display: flex; justify-content: center; width: 100%; }
+  #cubeStage { position: relative; transform-style: preserve-3d; display: inline-block; }
+  canvas { background: #fff; touch-action: none; max-width: 100%; height: auto; display: block; backface-visibility: hidden; }
+  #canvasBack { position: absolute; top: 0; left: 0; display: none; }
   #inventory { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   #invLabel { font-size: 11px; color: #888; }
   #invSlots { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: 460px; }
@@ -34,8 +37,8 @@
   #ctrlBtn { background: #fff; border: 1px solid #111; color: #111; min-width: 120px; }
   #useBtn { background: #2874e7; color: #fff; border-color: #2874e7; }
   #infoBtn { background: #fff; border-color: #888; }
-  #godBtn { background: #fff; border: 1px dashed #888; color: #666; }
-  #godBtn.active { background: #f39c12; color: #fff; border: 1px solid #f39c12; border-style: solid; }
+  .title-word { display: inline-block; cursor: pointer; user-select: none; -webkit-user-select: none; transition: text-decoration-color 0.2s; }
+  .title-word.struck { text-decoration: line-through; text-decoration-color: #f39c12; text-decoration-thickness: 3px; }
   #restartBtn { background: #27ae60; color: #fff; border: none; padding: 10px 18px; font-size: 14px; margin-top: 4px; }
   #message { min-height: 20px; font-size: 13px; text-align: center; color: #c0392b; font-weight: 600; padding: 0 8px; }
   #modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
@@ -69,7 +72,6 @@
   .swap-new { background: #fff3cd; border-color: #ffc107; }
   .swap-section-label { font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 2px; font-weight: 600; }
   @keyframes flash { 0% { background: #fff9c4; } 100% { background: #fff; } }
-  .round-flash { animation: flash 0.6s ease-out; }
 </style>
 </head>
 <body>
@@ -81,7 +83,12 @@
     <div><span id="lblKilled">Killed</span>: <span id="killed">0</span></div>
   </div>
   <div id="tips"></div>
-  <canvas id="canvas"></canvas>
+  <div id="canvasWrap">
+    <div id="cubeStage">
+      <canvas id="canvas"></canvas>
+      <canvas id="canvasBack"></canvas>
+    </div>
+  </div>
   <div id="inventory">
     <div id="invLabel"></div>
     <div id="invSlots"></div>
@@ -90,7 +97,6 @@
     <button id="ctrlBtn"></button>
     <button id="useBtn"></button>
     <button id="infoBtn"></button>
-    <button id="godBtn"></button>
   </div>
   <div id="message"></div>
   <button id="restartBtn" style="display:none"></button>
@@ -806,7 +812,7 @@ function newGame() {
     walls: null,
     tiles: Array.from({length: GRID}, () => new Array(GRID).fill('normal')),
     conveyorDirs: Array.from({length: GRID}, () => new Array(GRID).fill(null)),
-    player: { x: 0, y: 0, inv: new Array(INITIAL_INV_SIZE).fill(null), invSize: INITIAL_INV_SIZE, selectedSlot: 0, onMineId: null, skipNextTurn: false },
+    player: { x: 0, y: 0, inv: new Array(INITIAL_INV_SIZE).fill(null), invSize: INITIAL_INV_SIZE, selectedSlot: 0, onMineId: null, skipNextTurn: false, lastMoveDir: null },
     keysNeeded: 0,
     enemies: [], items: [], mines: [], mineIdCounter: 0,
     teleports: [], exit: { x: 0, y: 0 },
@@ -891,11 +897,17 @@ function setupRound(round) {
   s.tiles = Array.from({length: GRID}, () => new Array(GRID).fill('normal'));
   s.conveyorDirs = Array.from({length: GRID}, () => new Array(GRID).fill(null));
 
-  const corners = [{x:0,y:0},{x:9,y:0},{x:0,y:9},{x:9,y:9}];
-  const start = corners[randInt(4)];
+  let start;
+  if (round === 1 || !s.previousExitInfo) {
+    const corners = [{x:0,y:0},{x:9,y:0},{x:0,y:9},{x:9,y:9}];
+    start = corners[randInt(4)];
+  } else {
+    start = edgeStartFromExit(s.previousExitInfo.exit, s.previousExitInfo.dir);
+  }
   s.startCorner = {...start};
   s.player.x = start.x; s.player.y = start.y;
   s.player.onMineId = null;
+  s.player.lastMoveDir = null;
 
   const exits = getExitCandidates(start);
   s.exit = {...exits[randInt(exits.length)]};
@@ -1004,10 +1016,91 @@ function renderTips(tips) {
     tips.map(tp => `<div class="tip">${tp}</div>`).join('');
 }
 
-function flashCanvas() {
-  const c = document.getElementById('canvas');
-  c.classList.remove('round-flash'); void c.offsetWidth; c.classList.add('round-flash');
+function inferExitDir(exit, lastDir) {
+  // Priority: use last move direction if it's consistent with an edge
+  if (exit.x === 0 && lastDir === 'w') return 'w';
+  if (exit.x === 9 && lastDir === 'e') return 'e';
+  if (exit.y === 0 && lastDir === 'n') return 'n';
+  if (exit.y === 9 && lastDir === 's') return 's';
+  // Fall back to edge by position
+  if (exit.x === 0) return 'w';
+  if (exit.x === 9) return 'e';
+  if (exit.y === 0) return 'n';
+  if (exit.y === 9) return 's';
+  return lastDir || 'n';
 }
+
+function edgeStartFromExit(exit, dir) {
+  // Same perpendicular coordinate, opposite edge
+  if (dir === 'n') return { x: exit.x, y: 9 };
+  if (dir === 's') return { x: exit.x, y: 0 };
+  if (dir === 'e') return { x: 0, y: exit.y };
+  if (dir === 'w') return { x: 9, y: exit.y };
+  return { x: 0, y: 0 };
+}
+
+function cubeTransition(exitDir, midCallback) {
+  return new Promise((resolve) => {
+    const canvas = document.getElementById('canvas');
+    const back = document.getElementById('canvasBack');
+    const stage = document.getElementById('cubeStage');
+    const size = canvas.width;
+    const half = size / 2;
+
+    // 1. Snapshot current (old) state onto back canvas
+    back.width = size;
+    back.height = size;
+    back.getContext('2d').drawImage(canvas, 0, 0);
+
+    // 2. Render new state onto main canvas
+    midCallback();
+
+    // 3. Position faces: BACK canvas (with old snapshot) at front of cube,
+    //    MAIN canvas (new state) at adjacent face based on exit direction.
+    //    After stage rotation the main canvas ends up at the front.
+    let mainTransform, stageTarget;
+    if (exitDir === 'e') {
+      // New face is on the right side of the cube
+      mainTransform = `rotateY(90deg) translateZ(${half}px)`;
+      stageTarget = `translateZ(-${half}px) rotateY(-90deg)`;
+    } else if (exitDir === 'w') {
+      mainTransform = `rotateY(-90deg) translateZ(${half}px)`;
+      stageTarget = `translateZ(-${half}px) rotateY(90deg)`;
+    } else if (exitDir === 'n') {
+      mainTransform = `rotateX(90deg) translateZ(${half}px)`;
+      stageTarget = `translateZ(-${half}px) rotateX(-90deg)`;
+    } else { // s
+      mainTransform = `rotateX(-90deg) translateZ(${half}px)`;
+      stageTarget = `translateZ(-${half}px) rotateX(90deg)`;
+    }
+
+    // Reset stage and show back canvas as front face
+    stage.style.transition = 'none';
+    stage.style.transform = `translateZ(-${half}px)`;
+    back.style.display = 'block';
+    back.style.transform = `translateZ(${half}px)`;
+    canvas.style.transform = mainTransform;
+    // Force reflow so the "from" state is applied before transition starts
+    void stage.offsetWidth;
+
+    // 4. Animate stage rotation. 920ms (15% slower) with ease for a natural cube feel.
+    stage.style.transition = 'transform 920ms cubic-bezier(0.5, 0.05, 0.3, 1)';
+    stage.style.transform = stageTarget;
+
+    setTimeout(() => {
+      // 5. Cleanup — canvas returns to flat, back canvas hidden
+      stage.style.transition = 'none';
+      stage.style.transform = '';
+      canvas.style.transform = '';
+      back.style.display = 'none';
+      back.style.transform = '';
+      void stage.offsetWidth;
+      stage.style.transition = '';
+      resolve();
+    }, 940);
+  });
+}
+function flashCanvas() { /* deprecated — cube transition is the round change indicator */ }
 function regenerateMaze() {
   state.walls = generateMaze();
   state.movesSinceRegen = 0;
@@ -1089,6 +1182,7 @@ function performPlayerMove(nx, ny, moveDir) {
 
   if (p.onMineId !== null) p.onMineId = null;
   p.x = nx; p.y = ny;
+  if (moveDir) p.lastMoveDir = moveDir;
   s.moves++;
 
   // Ice slide
@@ -1154,10 +1248,17 @@ function handleExit() {
   s.transitioning = true;
   showMessage(t('roundCompleted', s.round));
   render(); renderInventory(); updateHUD();
+
+  const exitDir = inferExitDir(s.exit, s.player.lastMoveDir);
+  s.previousExitInfo = { exit: {...s.exit}, dir: exitDir };
+
   setTimeout(() => {
-    if (s.round >= 10) openShop();
-    else { setupRound(s.round + 1); s.transitioning = false; }
-  }, 700);
+    if (s.round >= 10) {
+      openShop();
+    } else {
+      cubeTransition(exitDir, () => { setupRound(s.round + 1); }).then(() => { s.transitioning = false; });
+    }
+  }, 400);
   return false;
 }
 
@@ -1233,9 +1334,10 @@ function handleLandOn(p) {
 // =================== ENEMY DAMAGE ===================
 function damageEnemy(e, source) {
   const s = state;
-  // Shield absorbs one hit (does not break for instant-death if player has it, but for enemy yes)
+  // Shield absorbs one hit; enemy also skips its next turn so player can escape
   if (e.inv === 'shield') {
     e.inv = null;
+    e.frozen = Math.max(e.frozen, 1);
     showMessage(t('enemyShieldBroke', enemyName(e.type)));
     return false;
   }
@@ -1631,8 +1733,8 @@ function openShop() {
 function closeShop() {
   const s = state;
   document.getElementById('modal').classList.remove('open');
-  setupRound(s.round + 1);
-  s.transitioning = false;
+  const exitDir = s.previousExitInfo ? s.previousExitInfo.dir : 'n';
+  cubeTransition(exitDir, () => { setupRound(s.round + 1); }).then(() => { s.transitioning = false; });
 }
 
 // =================== SWAP MODAL ===================
@@ -2039,16 +2141,30 @@ function bindKeyboard() {
 
 function bindTouch() {
   let touchStartX = 0, touchStartY = 0;
+  let touchStartTarget = null;
   let lastTapTime = 0;
-  canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }
+
+  const isInteractive = (el) => {
+    if (!el || !el.closest) return false;
+    return !!(el.closest('button') || el.closest('.slot') || el.closest('#modal') || el.tagName === 'BUTTON' || el.tagName === 'INPUT');
+  };
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { touchStartTarget = null; return; }
+    touchStartTarget = e.target;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
   }, { passive: true });
-  canvas.addEventListener('touchend', (e) => {
+
+  document.addEventListener('touchend', (e) => {
     if (!state || state.gameOver || state.transitioning) return;
+    if (document.getElementById('modal').classList.contains('open')) return;
+    if (isInteractive(touchStartTarget)) { touchStartTarget = null; return; }
     const touch = e.changedTouches[0];
     if (!touch) return;
     const dx = touch.clientX - touchStartX, dy = touch.clientY - touchStartY;
     const isSwipe = Math.abs(dx) > 22 || Math.abs(dy) > 22;
+
     if (control === 'swipe' && isSwipe) {
       let dir;
       if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'e' : 'w';
@@ -2099,11 +2215,23 @@ function bindTilt() {
 
 function toggleInvincible() {
   invincible = !invincible;
-  const btn = document.getElementById('godBtn');
-  btn.classList.toggle('active', invincible);
-  btn.textContent = invincible ? t('godOn') : t('godOff');
+  const word = document.querySelector('#gameTitle .title-word');
+  if (word) word.classList.toggle('struck', invincible);
   showMessage(invincible ? t('godmodeOn') : t('godmodeOff'));
   render();
+}
+
+let titleTapCount = 0;
+let titleTapTimer = null;
+function onTitleTap() {
+  titleTapCount++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(() => { titleTapCount = 0; }, 1500);
+  if (titleTapCount >= 5) {
+    titleTapCount = 0;
+    clearTimeout(titleTapTimer);
+    toggleInvincible();
+  }
 }
 
 function cycleControl() {
@@ -2132,14 +2260,19 @@ function setControl(c) {
 
 // =================== LABELS ===================
 function applyLabels() {
-  document.getElementById('gameTitle').textContent = t('title');
-  document.title = t('title');
+  // Render title with first word in a clickable span (target of secret strike-through)
+  const title = t('title');
+  const spaceIdx = title.indexOf(' ');
+  const firstWord = spaceIdx === -1 ? title : title.substring(0, spaceIdx);
+  const rest = spaceIdx === -1 ? '' : title.substring(spaceIdx);
+  document.getElementById('gameTitle').innerHTML =
+    `<span class="title-word${invincible ? ' struck' : ''}">${firstWord}</span>${rest}`;
+  document.title = title;
   document.getElementById('lblMoves').textContent = t('moves');
   document.getElementById('lblRound').textContent = t('round');
   document.getElementById('lblKilled').textContent = t('killed');
   document.getElementById('useBtn').textContent = t('use');
   document.getElementById('infoBtn').textContent = t('info');
-  document.getElementById('godBtn').textContent = invincible ? t('godOn') : t('godOff');
   document.getElementById('restartBtn').textContent = t('newGame');
 }
 
@@ -2170,7 +2303,11 @@ function init() {
     if (pendingPickup || (state && state.transitioning)) return;
     document.getElementById('modal').classList.remove('open');
   });
-  document.getElementById('godBtn').addEventListener('click', toggleInvincible);
+  document.getElementById('gameTitle').addEventListener('click', (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains('title-word')) {
+      onTitleTap();
+    }
+  });
   document.getElementById('restartBtn').addEventListener('click', () => {
     document.getElementById('restartBtn').style.display = 'none';
     showMessage('');
