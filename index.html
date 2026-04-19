@@ -849,6 +849,18 @@ function render() {
     ctx.arc(pcx, pcy, CELL * 0.45, 0, Math.PI * 2);
     ctx.stroke();
   }
+  // Tilt cooldown indicator (shrinking ring)
+  if (control === 'tilt') {
+    const remaining = tiltCooldown - Date.now();
+    if (remaining > 0) {
+      const frac = remaining / 2000;
+      ctx.strokeStyle = 'rgba(128, 128, 128, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(pcx, pcy, CELL * 0.45, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+      ctx.stroke();
+    }
+  }
   ctx.fillStyle = '#2874e7';
   ctx.beginPath();
   ctx.arc(pcx, pcy, CELL * 0.36, 0, Math.PI * 2);
@@ -978,16 +990,19 @@ function bindTouch() {
   });
 }
 
+let tiltEventCount = 0;
+let tiltDiagnosticTimer = null;
+
 function bindTilt() {
-  window.addEventListener('deviceorientation', (e) => {
+  const handler = (e) => {
     if (control !== 'tilt') return;
+    tiltEventCount++;
     if (!state || state.gameOver || state.transitioning) return;
     const now = Date.now();
     if (now < tiltCooldown) return;
-    const beta = e.beta || 0;   // front-back (-180..180)
-    const gamma = e.gamma || 0; // left-right (-90..90)
-    const threshold = 20;
-    // Normalize beta — phones are often held slightly tilted forward
+    const beta = e.beta || 0;
+    const gamma = e.gamma || 0;
+    const threshold = 30;
     const b = beta - 30;
     let dir = null;
     if (Math.abs(gamma) > Math.abs(b)) {
@@ -998,10 +1013,45 @@ function bindTilt() {
       else if (b < -threshold) dir = 'n';
     }
     if (dir) {
-      tiltCooldown = now + 420;
+      tiltCooldown = now + 2000;
       tryMovePlayer(dir);
+      startTiltAnimation();
     }
-  });
+  };
+  window.addEventListener('deviceorientation', handler);
+  // Fallback for some Android devices
+  window.addEventListener('deviceorientationabsolute', handler);
+}
+
+function diagnoseTilt() {
+  tiltEventCount = 0;
+  if (tiltDiagnosticTimer) clearTimeout(tiltDiagnosticTimer);
+  tiltDiagnosticTimer = setTimeout(() => {
+    if (control !== 'tilt') return;
+    if (tiltEventCount === 0) {
+      if (!window.isSecureContext) {
+        showMessage('⚠ Потрібен HTTPS або localhost для датчика нахилу');
+      } else {
+        showMessage('⚠ Датчик нахилу не відповідає. Перевір дозволи в браузері');
+      }
+    }
+  }, 2500);
+}
+
+let tiltAnimationFrame = null;
+function startTiltAnimation() {
+  if (tiltAnimationFrame) return;
+  const tick = () => {
+    if (control !== 'tilt') { tiltAnimationFrame = null; return; }
+    if (tiltCooldown > Date.now()) {
+      render();
+      tiltAnimationFrame = requestAnimationFrame(tick);
+    } else {
+      render();
+      tiltAnimationFrame = null;
+    }
+  };
+  tiltAnimationFrame = requestAnimationFrame(tick);
 }
 
 function toggleInvincible() {
@@ -1020,14 +1070,19 @@ function setControl(c) {
     btn.classList.toggle('active', btn.dataset.ctrl === c);
   });
   if (c === 'tilt') {
+    if (!window.isSecureContext) {
+      showMessage('⚠ Нахил працює тільки на HTTPS або localhost. Зараз — file://');
+      return;
+    }
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission().then(p => {
         if (p !== 'granted') showMessage('Доступ до акселерометра відхилено');
-        else showMessage('Нахили пристрій для руху, подвійний тап — використати');
+        else { showMessage('Нахили пристрій для руху, подвійний тап — використати'); diagnoseTilt(); }
       }).catch(() => showMessage('Не вдалось активувати датчик нахилу'));
     } else {
       showMessage('Нахили пристрій для руху, подвійний тап — використати');
+      diagnoseTilt();
     }
   } else if (c === 'swipe') {
     showMessage('Свайп для руху, подвійний тап — використати');
