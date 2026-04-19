@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Лабіринт із пастками</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 10px;
+    background: #f5f5f7;
+    color: #111;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #app {
+    max-width: 460px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 4px 0 0;
+    font-weight: 800;
+    text-align: center;
+  }
+  #hud {
+    display: flex;
+    gap: 14px;
+    font-size: 13px;
+    color: #555;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #hud span { font-weight: 700; color: #111; }
+  canvas {
+    background: #fff;
+    touch-action: none;
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+  #inventory {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  #invIcon {
+    display: inline-block;
+    min-width: 22px;
+    font-size: 18px;
+    text-align: center;
+  }
+  #controls {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    padding: 8px 10px;
+    font-size: 12px;
+    border: 1px solid #c0c0c0;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+    font-weight: 600;
+    color: #222;
+  }
+  button.active { background: #111; color: #fff; border-color: #111; }
+  button:active { transform: scale(0.96); }
+  #useBtn { background: #2874e7; color: #fff; border-color: #2874e7; }
+  #godBtn { background: #fff; border: 1px dashed #888; color: #666; }
+  #godBtn.active { background: #f39c12; color: #fff; border: 1px solid #f39c12; border-style: solid; }
+  #restartBtn { background: #27ae60; color: #fff; border: none; padding: 10px 18px; font-size: 14px; margin-top: 4px; }
+  #message {
+    min-height: 20px;
+    font-size: 13px;
+    text-align: center;
+    color: #c0392b;
+    font-weight: 600;
+    padding: 0 8px;
+  }
+  #legend {
+    font-size: 10px;
+    color: #888;
+    text-align: center;
+    max-width: 420px;
+    line-height: 1.4;
+  }
+  .round-flash {
+    animation: flash 0.6s ease-out;
+  }
+  @keyframes flash {
+    0% { background: #fff9c4; }
+    100% { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Лабіринт із пастками</h1>
+  <div id="hud">
+    <div>Кроків: <span id="moves">0</span></div>
+    <div>Раунд: <span id="round">1</span></div>
+    <div>Вбито: <span id="killed">0</span></div>
+  </div>
+  <canvas id="canvas"></canvas>
+  <div id="inventory">
+    Інвентар: <span id="invIcon">—</span><span id="invName">порожньо</span>
+  </div>
+  <div id="controls">
+    <button data-ctrl="arrows" class="active">⬆️ Стрілки</button>
+    <button data-ctrl="wasd">WASD</button>
+    <button data-ctrl="swipe">Свайп</button>
+    <button data-ctrl="tilt">Нахил</button>
+    <button id="useBtn">Використати ⏎</button>
+    <button id="godBtn" title="Режим тесту: ігнорує смерть від ворогів, ям і мін">🛡 Невразливість: OFF</button>
+  </div>
+  <div id="message"></div>
+  <button id="restartBtn" style="display:none">Нова гра</button>
+  <div id="legend">🔪 ніж (вбиває ворога) · ⏰ годинник (стоп на 3 ходи) · ⌁ тільда (ламає стіну) · 💣 міна · 🎲 рандом · сині кола = телепорт · чорні квадрати = ями</div>
+</div>
+
+<script>
+'use strict';
+
+// =================== CONFIG ===================
+const GRID = 10;
+const CELL = 38;
+const PAD = 8;
+const CANVAS_SIZE = GRID * CELL + PAD * 2;
+
+const DIRS = {
+  n: { dx: 0, dy: -1, opp: 's' },
+  e: { dx: 1, dy: 0, opp: 'w' },
+  s: { dx: 0, dy: 1, opp: 'n' },
+  w: { dx: -1, dy: 0, opp: 'e' }
+};
+
+const ITEMS = {
+  knife:  { color: '#c0392b', emoji: '🔪', name: 'Ніж' },
+  clock:  { color: '#3498db', emoji: '⏰', name: 'Годинник' },
+  tilde:  { color: '#9b59b6', emoji: '⌁', name: 'Тільда' },
+  mine:   { color: '#2c3e50', emoji: '💣', name: 'Міна' },
+  random: { color: '#e67e22', emoji: '🎲', name: 'Рандом' }
+};
+
+// =================== STATE ===================
+let state = null;
+let control = 'arrows';
+let pendingTilde = false;
+let tiltCooldown = 0;
+let invincible = false;
+
+// =================== UTILS ===================
+function randInt(n) { return Math.floor(Math.random() * n); }
+function manhattan(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+function same(a, b) { return a && b && a.x === b.x && a.y === b.y; }
+
+// =================== MAZE GENERATION ===================
+function createFullWalls() {
+  const w = [];
+  for (let y = 0; y < GRID; y++) {
+    w[y] = [];
+    for (let x = 0; x < GRID; x++) {
+      w[y][x] = { n: true, e: true, s: true, w: true };
+    }
+  }
+  return w;
+}
+
+function generateMaze() {
+  const walls = createFullWalls();
+  const visited = Array.from({length: GRID}, () => new Array(GRID).fill(false));
+  const startX = randInt(GRID), startY = randInt(GRID);
+  const stack = [[startX, startY]];
+  visited[startY][startX] = true;
+
+  while (stack.length) {
+    const [x, y] = stack[stack.length - 1];
+    const avail = [];
+    for (const [d, def] of Object.entries(DIRS)) {
+      const nx = x + def.dx, ny = y + def.dy;
+      if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID && !visited[ny][nx]) {
+        avail.push([d, nx, ny]);
+      }
+    }
+    if (!avail.length) {
+      stack.pop();
+    } else {
+      const [d, nx, ny] = avail[randInt(avail.length)];
+      walls[y][x][d] = false;
+      walls[ny][nx][DIRS[d].opp] = false;
+      visited[ny][nx] = true;
+      stack.push([nx, ny]);
+    }
+  }
+
+  // Add loops — remove ~12% of internal walls to make maze feel more open
+  const loops = Math.floor(GRID * GRID * 0.12);
+  for (let i = 0; i < loops; i++) {
+    const x = randInt(GRID), y = randInt(GRID);
+    const dirs = Object.keys(DIRS);
+    const d = dirs[randInt(4)];
+    const nx = x + DIRS[d].dx, ny = y + DIRS[d].dy;
+    if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+      walls[y][x][d] = false;
+      walls[ny][nx][DIRS[d].opp] = false;
+    }
+  }
+  return walls;
+}
+
+function accessibleNeighbors(x, y, walls) {
+  const result = [];
+  for (const [d, def] of Object.entries(DIRS)) {
+    if (!walls[y][x][d]) {
+      result.push({ x: x + def.dx, y: y + def.dy });
+    }
+  }
+  return result;
+}
+
+function bfsNext(from, to, walls) {
+  if (from.x === to.x && from.y === to.y) return null;
+  const key = (x, y) => x * 100 + y;
+  const startKey = key(from.x, from.y);
+  const visited = new Set([startKey]);
+  const parent = new Map();
+  const queue = [[from.x, from.y]];
+
+  while (queue.length) {
+    const [x, y] = queue.shift();
+    if (x === to.x && y === to.y) {
+      let cur = key(x, y);
+      while (parent.get(cur) !== undefined && parent.get(cur) !== startKey) {
+        cur = parent.get(cur);
+      }
+      const nx = Math.floor(cur / 100), ny = cur % 100;
+      return { x: nx, y: ny };
+    }
+    for (const n of accessibleNeighbors(x, y, walls)) {
+      const k = key(n.x, n.y);
+      if (!visited.has(k)) {
+        visited.add(k);
+        parent.set(k, key(x, y));
+        queue.push([n.x, n.y]);
+      }
+    }
+  }
+  return null;
+}
+
+// =================== SETUP ===================
+function cellOccupied(c) {
+  const s = state;
+  if (same(c, s.player)) return true;
+  if (same(c, s.exit)) return true;
+  for (const e of s.enemies) if (same(c, e)) return true;
+  for (const p of s.pits) if (same(c, p)) return true;
+  for (const it of s.items) if (same(c, it)) return true;
+  for (const m of s.mines) if (same(c, m)) return true;
+  for (const t of s.teleports) if (same(c, t)) return true;
+  return false;
+}
+
+function randomEmptyCell(predicate) {
+  const candidates = [];
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const cell = { x, y };
+      if (cellOccupied(cell)) continue;
+      if (predicate && !predicate(cell)) continue;
+      candidates.push(cell);
+    }
+  }
+  if (!candidates.length) {
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        const cell = { x, y };
+        if (!cellOccupied(cell)) candidates.push(cell);
+      }
+    }
+  }
+  return candidates.length ? candidates[randInt(candidates.length)] : null;
+}
+
+function getExitCandidates(start) {
+  const list = [
+    {x:0,y:0},{x:9,y:0},{x:0,y:9},{x:9,y:9},
+    {x:0,y:4},{x:0,y:5},{x:9,y:4},{x:9,y:5},
+    {x:4,y:0},{x:5,y:0},{x:4,y:9},{x:5,y:9}
+  ];
+  return list.filter(c => manhattan(c, start) >= 6);
+}
+
+function far3(c) {
+  const s = state;
+  if (manhattan(c, s.player) < 3) return false;
+  for (const e of s.enemies) if (manhattan(c, e) < 3) return false;
+  return true;
+}
+
+function newGame() {
+  state = {
+    walls: null,
+    player: { x: 0, y: 0, inv: null, onMineId: null },
+    enemies: [],
+    pits: [],
+    items: [],
+    mines: [],
+    mineIdCounter: 0,
+    teleports: [],
+    exit: { x: 0, y: 0 },
+    round: 1,
+    moves: 0,
+    killed: 0,
+    movesSinceRegen: 0,
+    freezeMaze: 0,
+    gameOver: false,
+    transitioning: false,
+    startCorner: { x: 0, y: 0 }
+  };
+  pendingTilde = false;
+  document.getElementById('restartBtn').style.display = 'none';
+  setupRound(1);
+}
+
+function setupRound(round) {
+  const s = state;
+  s.round = round;
+  s.movesSinceRegen = 0;
+  s.freezeMaze = 0;
+  s.pits = [];
+  s.items = [];
+  s.mines = [];
+  s.teleports = [];
+  s.enemies = [];
+
+  const corners = [{x:0,y:0},{x:9,y:0},{x:0,y:9},{x:9,y:9}];
+  const start = corners[randInt(4)];
+  s.startCorner = {...start};
+  s.player.x = start.x;
+  s.player.y = start.y;
+  s.player.onMineId = null;
+
+  const exits = getExitCandidates(start);
+  s.exit = {...exits[randInt(exits.length)]};
+
+  s.walls = generateMaze();
+
+  // Enemies
+  const numEnemies = round >= 5 ? 4 : 3;
+  for (let i = 0; i < numEnemies; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
+    if (pos) s.enemies.push({ x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null });
+  }
+
+  // Pits (round >= 2)
+  const numPits = round >= 8 ? 2 : (round >= 2 ? 1 : 0);
+  for (let i = 0; i < numPits; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 7);
+    if (pos) s.pits.push(pos);
+  }
+
+  // Knives (round >= 3)
+  const numKnives = round >= 9 ? 2 : (round >= 3 ? 1 : 0);
+  for (let i = 0; i < numKnives; i++) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 7);
+    if (pos) s.items.push({ type: 'knife', x: pos.x, y: pos.y });
+  }
+
+  // Teleport pair (round >= 4)
+  if (round >= 4) {
+    const a = randomEmptyCell(c => manhattan(c, s.player) >= 5 && manhattan(c, s.exit) >= 5);
+    if (a) {
+      s.teleports.push(a);
+      const b = randomEmptyCell(c => manhattan(c, s.player) >= 5 && manhattan(c, s.exit) >= 5 && manhattan(c, a) >= 3);
+      if (b) s.teleports.push(b); else s.teleports.pop();
+    }
+  }
+
+  // Tildes (round >= 6)
+  const numTildes = round >= 10 ? 2 : (round >= 6 ? 1 : 0);
+  for (let i = 0; i < numTildes; i++) {
+    const pos = randomEmptyCell(c => far3(c));
+    if (pos) s.items.push({ type: 'tilde', x: pos.x, y: pos.y });
+  }
+
+  // Clocks (round >= 7)
+  const numClocks = round >= 11 ? 2 : (round >= 7 ? 1 : 0);
+  for (let i = 0; i < numClocks; i++) {
+    const pos = randomEmptyCell(c => far3(c));
+    if (pos) s.items.push({ type: 'clock', x: pos.x, y: pos.y });
+  }
+
+  // Mine (rounds 8-9)
+  if (round === 8 || round === 9) {
+    const pos = randomEmptyCell(c => far3(c));
+    if (pos) s.items.push({ type: 'mine', x: pos.x, y: pos.y });
+  }
+
+  // Random (round 9)
+  if (round === 9) {
+    const pos = randomEmptyCell(c => far3(c));
+    if (pos) s.items.push({ type: 'random', x: pos.x, y: pos.y });
+  }
+
+  render();
+  updateHUD();
+  flashCanvas();
+  showMessage(`Раунд ${round}. Знайди вихід!`);
+}
+
+function flashCanvas() {
+  const c = document.getElementById('canvas');
+  c.classList.remove('round-flash');
+  void c.offsetWidth;
+  c.classList.add('round-flash');
+}
+
+function regenerateMaze() {
+  state.walls = generateMaze();
+  state.movesSinceRegen = 0;
+}
+
+// =================== PLAYER ACTIONS ===================
+function tryMovePlayer(dir) {
+  const s = state;
+  if (s.gameOver || s.transitioning) return;
+  const p = s.player;
+  const def = DIRS[dir];
+  const nx = p.x + def.dx, ny = p.y + def.dy;
+
+  // Tilde — breaking a wall in chosen direction
+  if (pendingTilde && p.inv === 'tilde') {
+    pendingTilde = false;
+    if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) {
+      showMessage('Не можна ламати зовнішню стіну');
+      return;
+    }
+    if (s.walls[p.y][p.x][dir]) {
+      s.walls[p.y][p.x][dir] = false;
+      s.walls[ny][nx][def.opp] = false;
+      p.inv = null;
+      showMessage('Стіну зламано! ⌁');
+      performPlayerMove(nx, ny);
+      return;
+    }
+    showMessage('Тут немає стіни для злому');
+    // continue to regular move
+  }
+
+  if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) return;
+  if (s.walls[p.y][p.x][dir]) return;
+  performPlayerMove(nx, ny);
+}
+
+function performPlayerMove(nx, ny) {
+  const s = state;
+  const p = s.player;
+
+  // Leaving own mine — arm it
+  if (p.onMineId !== null) p.onMineId = null;
+
+  p.x = nx;
+  p.y = ny;
+  s.moves++;
+
+  // Teleport
+  checkTeleport(p);
+
+  // Collision with enemy (player stepped onto enemy)
+  if (resolvePlayerEnemyCollision()) return;
+
+  // Mine
+  const mine = s.mines.find(m => same(m, p));
+  if (mine && p.onMineId !== mine.id) {
+    if (invincible) {
+      s.mines = s.mines.filter(m => m.id !== mine.id);
+      showMessage('🛡 Міна знешкоджена (тест)');
+    } else {
+      s.gameOver = true;
+      showMessage('💥 Ти підірвався на міні!');
+      render(); updateHUD();
+      showRestart();
+      return;
+    }
+  }
+
+  // Pit
+  if (s.pits.some(pit => same(pit, p))) {
+    if (invincible) {
+      showMessage('🛡 Пройшов через яму (тест)');
+    } else {
+      s.gameOver = true;
+      showMessage('🕳 Ти впав у яму!');
+      render(); updateHUD();
+      showRestart();
+      return;
+    }
+  }
+
+  // Item pickup
+  const itemIdx = s.items.findIndex(it => same(it, p));
+  if (itemIdx !== -1) {
+    const item = s.items[itemIdx];
+    p.inv = item.type;
+    s.items.splice(itemIdx, 1);
+    showMessage(`Підібрано: ${ITEMS[item.type].name} ${ITEMS[item.type].emoji}`);
+  }
+
+  // Exit
+  if (same(s.exit, p)) {
+    s.transitioning = true;
+    showMessage(`🏁 Раунд ${s.round} пройдено!`);
+    render(); updateHUD();
+    setTimeout(() => {
+      setupRound(s.round + 1);
+      s.transitioning = false;
+    }, 700);
+    return;
+  }
+
+  // Maze regen counter
+  if (s.freezeMaze > 0) {
+    s.freezeMaze--;
+  } else {
+    s.movesSinceRegen++;
+    if (s.movesSinceRegen >= 3) regenerateMaze();
+  }
+
+  // Enemy turn
+  enemyTurn();
+
+  render();
+  updateHUD();
+}
+
+function resolvePlayerEnemyCollision() {
+  const s = state;
+  const p = s.player;
+  for (let i = 0; i < s.enemies.length; i++) {
+    const e = s.enemies[i];
+    if (same(e, p)) {
+      if (p.inv === 'knife') {
+        s.enemies.splice(i, 1);
+        p.inv = null;
+        s.killed++;
+        showMessage('🔪 Ворога вбито ножем!');
+        return false;
+      } else if (invincible) {
+        // Kill the enemy in test mode so player can keep moving
+        s.enemies.splice(i, 1);
+        s.killed++;
+        showMessage('🛡 Ворога вбито (тест)');
+        return false;
+      } else if (e.inv === 'knife') {
+        s.gameOver = true;
+        showMessage('💀 Ворог із ножем тебе зарізав!');
+        render(); updateHUD();
+        showRestart();
+        return true;
+      } else {
+        s.gameOver = true;
+        showMessage('💀 Ворог спіймав тебе!');
+        render(); updateHUD();
+        showRestart();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function checkTeleport(entity) {
+  const s = state;
+  if (s.teleports.length !== 2) return;
+  const [a, b] = s.teleports;
+  if (same(entity, a)) { entity.x = b.x; entity.y = b.y; }
+  else if (same(entity, b)) { entity.x = a.x; entity.y = a.y; }
+}
+
+function useItem() {
+  const s = state;
+  if (s.gameOver || s.transitioning) return;
+  const p = s.player;
+  if (!p.inv) { showMessage('Інвентар порожній'); return; }
+
+  switch (p.inv) {
+    case 'knife':
+      showMessage('Ніж спрацює автоматично при зіткненні');
+      return;
+    case 'clock':
+      for (const e of s.enemies) e.frozen = Math.max(e.frozen, 3);
+      s.freezeMaze = 3;
+      p.inv = null;
+      showMessage('⏰ Час зупинено на 3 ходи!');
+      break;
+    case 'tilde':
+      pendingTilde = true;
+      showMessage('⌁ Обери напрямок, щоб зламати стіну');
+      return;
+    case 'mine': {
+      if (s.mines.some(m => same(m, p))) { showMessage('Тут вже є міна'); return; }
+      const newMine = { x: p.x, y: p.y, id: ++s.mineIdCounter, placer: 'player' };
+      s.mines.push(newMine);
+      p.onMineId = newMine.id;
+      p.inv = null;
+      showMessage('💣 Міну встановлено — зійди з неї!');
+      break;
+    }
+    case 'random':
+      p.inv = null;
+      regenerateMaze();
+      showMessage('🎲 Лабіринт перегенеровано!');
+      break;
+  }
+  render();
+  updateHUD();
+}
+
+// =================== ENEMY TURN ===================
+function enemyTurn() {
+  const s = state;
+  if (s.gameOver) return;
+  const p = s.player;
+
+  for (let i = s.enemies.length - 1; i >= 0; i--) {
+    const e = s.enemies[i];
+    if (!e) continue;
+
+    // Frozen enemies skip
+    if (e.frozen > 0) { e.frozen--; continue; }
+
+    // Enemy AI: maybe place mine if player is very close
+    if (e.inv === 'mine' && manhattan(e, p) <= 2 && Math.random() < 0.6) {
+      if (!s.mines.some(m => same(m, e))) {
+        const newMine = { x: e.x, y: e.y, id: ++s.mineIdCounter, placer: 'enemy' };
+        s.mines.push(newMine);
+        e.onMineId = newMine.id;
+        e.inv = null;
+        // Skip movement this turn
+        continue;
+      }
+    }
+
+    // Enemy uses random item occasionally
+    if (e.inv === 'random' && Math.random() < 0.3) {
+      e.inv = null;
+      regenerateMaze();
+      showMessage('🎲 Ворог перегенерував лабіринт!');
+    }
+
+    // Pathfind to player
+    let next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls);
+
+    // Enemy uses tilde to break wall toward player if no path or path is long
+    if (e.inv === 'tilde' && Math.random() < 0.5) {
+      // Break a wall in direction roughly toward player
+      const dx = p.x - e.x, dy = p.y - e.y;
+      let preferDir = null;
+      if (Math.abs(dx) > Math.abs(dy)) preferDir = dx > 0 ? 'e' : 'w';
+      else preferDir = dy > 0 ? 's' : 'n';
+      if (preferDir && s.walls[e.y][e.x][preferDir]) {
+        const def = DIRS[preferDir];
+        const nx = e.x + def.dx, ny = e.y + def.dy;
+        if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+          s.walls[e.y][e.x][preferDir] = false;
+          s.walls[ny][nx][def.opp] = false;
+          e.inv = null;
+          next = { x: nx, y: ny };
+          showMessage('⌁ Ворог зламав стіну!');
+        }
+      }
+    }
+
+    if (!next) continue;
+
+    if (e.onMineId !== null) e.onMineId = null;
+    e.x = next.x;
+    e.y = next.y;
+
+    // Teleport
+    checkTeleport(e);
+
+    // Pit
+    if (s.pits.some(pit => same(pit, e))) {
+      s.enemies.splice(i, 1);
+      s.killed++;
+      showMessage('Ворог впав у яму! 🕳');
+      continue;
+    }
+
+    // Mine
+    const mine = s.mines.find(m => same(m, e));
+    if (mine && mine.id !== e.onMineId) {
+      s.enemies.splice(i, 1);
+      s.mines = s.mines.filter(m => m.id !== mine.id);
+      s.killed++;
+      showMessage('💥 Ворог підірвався на міні!');
+      continue;
+    }
+
+    // Pick up item
+    const itemIdx = s.items.findIndex(it => same(it, e));
+    if (itemIdx !== -1) {
+      const item = s.items[itemIdx];
+      if (item.type === 'clock') {
+        // Enemy doesn't benefit — item vanishes
+        s.items.splice(itemIdx, 1);
+      } else {
+        e.inv = item.type;
+        s.items.splice(itemIdx, 1);
+      }
+    }
+
+    // Collision with player
+    if (same(e, p)) {
+      if (p.inv === 'knife') {
+        s.enemies.splice(i, 1);
+        p.inv = null;
+        s.killed++;
+        showMessage('🔪 Ворог наткнувся на ніж!');
+        continue;
+      } else if (invincible) {
+        s.enemies.splice(i, 1);
+        s.killed++;
+        showMessage('🛡 Ворог знищений (тест)');
+        continue;
+      } else if (e.inv === 'knife') {
+        s.gameOver = true;
+        showMessage('💀 Ворог із ножем тебе зарізав!');
+        showRestart();
+        return;
+      } else {
+        s.gameOver = true;
+        showMessage('💀 Ворог спіймав тебе!');
+        showRestart();
+        return;
+      }
+    }
+  }
+}
+
+// =================== RENDER ===================
+let canvas, ctx;
+
+function render() {
+  const s = state;
+  ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+  // White playing field
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(PAD, PAD, GRID * CELL, GRID * CELL);
+
+  // Exit (green)
+  ctx.fillStyle = '#27ae60';
+  ctx.fillRect(PAD + s.exit.x * CELL + 3, PAD + s.exit.y * CELL + 3, CELL - 6, CELL - 6);
+
+  // Pits (black squares)
+  ctx.fillStyle = '#000';
+  for (const pit of s.pits) {
+    ctx.fillRect(PAD + pit.x * CELL + 4, PAD + pit.y * CELL + 4, CELL - 8, CELL - 8);
+  }
+
+  // Teleport cells (blue ring)
+  if (s.teleports.length === 2) {
+    ctx.strokeStyle = '#5dade2';
+    ctx.fillStyle = '#d6eaf8';
+    ctx.lineWidth = 2;
+    for (const t of s.teleports) {
+      const cx = PAD + t.x * CELL + CELL/2;
+      const cy = PAD + t.y * CELL + CELL/2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, CELL * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  // Mines
+  ctx.fillStyle = '#1a1a1a';
+  for (const m of s.mines) {
+    const cx = PAD + m.x * CELL + CELL/2;
+    const cy = PAD + m.y * CELL + CELL/2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    // little spike marks
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2;
+    for (let a = 0; a < 4; a++) {
+      const ang = a * Math.PI / 2 + Math.PI / 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * CELL * 0.22, cy + Math.sin(ang) * CELL * 0.22);
+      ctx.lineTo(cx + Math.cos(ang) * CELL * 0.34, cy + Math.sin(ang) * CELL * 0.34);
+      ctx.stroke();
+    }
+  }
+
+  // Items (emoji)
+  ctx.font = `${Math.floor(CELL * 0.55)}px -apple-system, "Segoe UI Emoji", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const it of s.items) {
+    ctx.fillText(ITEMS[it.type].emoji, PAD + it.x * CELL + CELL/2, PAD + it.y * CELL + CELL/2 + 2);
+  }
+
+  // Enemies (red squares)
+  for (const e of s.enemies) {
+    ctx.fillStyle = e.frozen > 0 ? '#a0c4ff' : '#e74c3c';
+    ctx.fillRect(PAD + e.x * CELL + 5, PAD + e.y * CELL + 5, CELL - 10, CELL - 10);
+    if (e.inv) {
+      ctx.font = `${Math.floor(CELL * 0.3)}px sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.fillText(ITEMS[e.inv].emoji, PAD + e.x * CELL + CELL/2, PAD + e.y * CELL + CELL/2 + 1);
+    }
+    if (e.frozen > 0) {
+      ctx.strokeStyle = '#2874e7';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(PAD + e.x * CELL + 4, PAD + e.y * CELL + 4, CELL - 8, CELL - 8);
+    }
+  }
+
+  // Player (blue circle)
+  const pcx = PAD + s.player.x * CELL + CELL/2;
+  const pcy = PAD + s.player.y * CELL + CELL/2;
+  if (invincible) {
+    ctx.strokeStyle = '#f39c12';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(pcx, pcy, CELL * 0.45, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#2874e7';
+  ctx.beginPath();
+  ctx.arc(pcx, pcy, CELL * 0.36, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Walls
+  ctx.strokeStyle = '#000';
+  ctx.lineCap = 'square';
+
+  // Inner walls
+  ctx.lineWidth = 2;
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const cx = PAD + x * CELL;
+      const cy = PAD + y * CELL;
+      const w = s.walls[y][x];
+      if (w.n && y > 0) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + CELL, cy);
+        ctx.stroke();
+      }
+      if (w.w && x > 0) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx, cy + CELL);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Outer border (thick)
+  ctx.lineWidth = 3;
+  ctx.strokeRect(PAD, PAD, GRID * CELL, GRID * CELL);
+}
+
+function updateHUD() {
+  document.getElementById('moves').textContent = state.moves;
+  document.getElementById('round').textContent = state.round;
+  document.getElementById('killed').textContent = state.killed;
+  const inv = state.player.inv;
+  if (inv) {
+    document.getElementById('invIcon').textContent = ITEMS[inv].emoji;
+    document.getElementById('invName').textContent = ITEMS[inv].name;
+  } else {
+    document.getElementById('invIcon').textContent = '—';
+    document.getElementById('invName').textContent = 'порожньо';
+  }
+}
+
+let msgTimer = null;
+function showMessage(text) {
+  const el = document.getElementById('message');
+  el.textContent = text;
+  if (msgTimer) clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => { el.textContent = ''; }, 2500);
+}
+
+function showRestart() {
+  document.getElementById('restartBtn').style.display = 'inline-block';
+}
+
+// =================== INPUT ===================
+function bindKeyboard() {
+  window.addEventListener('keydown', (e) => {
+    if (state.gameOver || state.transitioning) return;
+    let dir = null;
+    if (control === 'arrows') {
+      if (e.key === 'ArrowUp') dir = 'n';
+      else if (e.key === 'ArrowDown') dir = 's';
+      else if (e.key === 'ArrowLeft') dir = 'w';
+      else if (e.key === 'ArrowRight') dir = 'e';
+    } else if (control === 'wasd') {
+      const k = e.key.toLowerCase();
+      if (k === 'w' || k === 'ц') dir = 'n';
+      else if (k === 's' || k === 'ы' || k === 'і') dir = 's';
+      else if (k === 'a' || k === 'ф') dir = 'w';
+      else if (k === 'd' || k === 'в') dir = 'e';
+    }
+    if (dir) {
+      e.preventDefault();
+      tryMovePlayer(dir);
+    } else if (e.key === ' ' || e.code === 'Space' || e.key === 'Enter') {
+      e.preventDefault();
+      useItem();
+    }
+  });
+}
+
+function bindTouch() {
+  let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+  let lastTapTime = 0;
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (state.gameOver || state.transitioning) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    const isSwipe = Math.abs(dx) > 22 || Math.abs(dy) > 22;
+
+    if (control === 'swipe' && isSwipe) {
+      let dir;
+      if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'e' : 'w';
+      else dir = dy > 0 ? 's' : 'n';
+      tryMovePlayer(dir);
+      return;
+    }
+
+    if ((control === 'swipe' || control === 'tilt') && !isSwipe) {
+      const now = Date.now();
+      if (now - lastTapTime < 380) {
+        useItem();
+        lastTapTime = 0;
+      } else {
+        lastTapTime = now;
+      }
+    }
+  });
+}
+
+function bindTilt() {
+  window.addEventListener('deviceorientation', (e) => {
+    if (control !== 'tilt') return;
+    if (!state || state.gameOver || state.transitioning) return;
+    const now = Date.now();
+    if (now < tiltCooldown) return;
+    const beta = e.beta || 0;   // front-back (-180..180)
+    const gamma = e.gamma || 0; // left-right (-90..90)
+    const threshold = 20;
+    // Normalize beta — phones are often held slightly tilted forward
+    const b = beta - 30;
+    let dir = null;
+    if (Math.abs(gamma) > Math.abs(b)) {
+      if (gamma > threshold) dir = 'e';
+      else if (gamma < -threshold) dir = 'w';
+    } else {
+      if (b > threshold) dir = 's';
+      else if (b < -threshold) dir = 'n';
+    }
+    if (dir) {
+      tiltCooldown = now + 420;
+      tryMovePlayer(dir);
+    }
+  });
+}
+
+function toggleInvincible() {
+  invincible = !invincible;
+  const btn = document.getElementById('godBtn');
+  btn.classList.toggle('active', invincible);
+  btn.textContent = invincible ? '🛡 Невразливість: ON' : '🛡 Невразливість: OFF';
+  showMessage(invincible ? '🛡 Тестовий режим увімкнено' : 'Тестовий режим вимкнено');
+  render();
+}
+
+function setControl(c) {
+  control = c;
+  pendingTilde = false;
+  document.querySelectorAll('#controls button[data-ctrl]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.ctrl === c);
+  });
+  if (c === 'tilt') {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().then(p => {
+        if (p !== 'granted') showMessage('Доступ до акселерометра відхилено');
+        else showMessage('Нахили пристрій для руху, подвійний тап — використати');
+      }).catch(() => showMessage('Не вдалось активувати датчик нахилу'));
+    } else {
+      showMessage('Нахили пристрій для руху, подвійний тап — використати');
+    }
+  } else if (c === 'swipe') {
+    showMessage('Свайп для руху, подвійний тап — використати');
+  } else if (c === 'wasd') {
+    showMessage('WASD для руху, пробіл — використати');
+  } else {
+    showMessage('Стрілки для руху, пробіл — використати');
+  }
+}
+
+// =================== INIT ===================
+function init() {
+  canvas = document.getElementById('canvas');
+  canvas.width = CANVAS_SIZE;
+  canvas.height = CANVAS_SIZE;
+  ctx = canvas.getContext('2d');
+
+  document.querySelectorAll('#controls button[data-ctrl]').forEach(btn => {
+    btn.addEventListener('click', () => setControl(btn.dataset.ctrl));
+  });
+  document.getElementById('useBtn').addEventListener('click', useItem);
+  document.getElementById('godBtn').addEventListener('click', toggleInvincible);
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    document.getElementById('restartBtn').style.display = 'none';
+    showMessage('');
+    newGame();
+  });
+
+  bindKeyboard();
+  bindTouch();
+  bindTilt();
+
+  newGame();
+}
+
+init();
+</script>
+</body>
+</html>
