@@ -13,18 +13,43 @@
     display: flex; justify-content: center; min-height: 100vh;
     overscroll-behavior: none; user-select: none; -webkit-user-select: none;
   }
-  #app { max-width: 500px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #app {
+    max-width: 500px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
   h1 { font-size: 22px; margin: 4px 0 0; font-weight: 800; text-align: center; }
   #hud { display: flex; gap: 14px; font-size: 13px; color: #555; flex-wrap: wrap; justify-content: center; }
   #hud span { font-weight: 700; color: #111; }
   #objective { padding: 6px 12px; background: #fff8e1; border: 1px solid #ffd54f; border-radius: 6px; font-size: 13px; text-align: center; max-width: 460px; line-height: 1.35; }
   #tips { display: flex; flex-direction: column; gap: 4px; max-width: 460px; width: 100%; }
   .tip { padding: 5px 10px; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; font-size: 12px; line-height: 1.3; }
+  #eventLog {
+    max-width: 396px; width: 100%;
+    min-height: 42px; max-height: 60px;
+    overflow-y: auto;
+    padding: 4px 8px;
+    background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px;
+    font-size: 11px; line-height: 1.35; color: #333;
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  #eventLog .log-entry { padding: 1px 0; border-bottom: 1px dashed #eee; }
+  #eventLog .log-entry:last-child { border-bottom: none; font-weight: 600; color: #111; }
+  #statusBar {
+    display: flex; justify-content: space-between; align-items: center;
+    max-width: 396px; width: 100%; padding: 0 4px;
+    font-size: 14px; font-weight: 600;
+  }
+  #statusBar:empty, #statusBar:has(#keyStatus:empty) { display: none; }
+  #keyStatus { color: #111; }
   #canvasWrap { perspective: 1400px; display: flex; justify-content: center; width: 100%; }
   #cubeStage { position: relative; transform-style: preserve-3d; display: inline-block; }
   canvas { background: #fff; touch-action: none; max-width: 100%; height: auto; display: block; backface-visibility: hidden; }
   #canvasBack { position: absolute; top: 0; left: 0; display: none; }
-  #inventory { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  #inventory { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 2px; }
   #invLabel { font-size: 11px; color: #888; }
   #invSlots { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: 460px; }
   .slot { width: 40px; height: 40px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; position: relative; }
@@ -38,6 +63,7 @@
   #useBtn { background: #2874e7; color: #fff; border-color: #2874e7; }
   #infoBtn { background: #fff; border-color: #888; }
   .title-word { display: inline-block; cursor: pointer; user-select: none; -webkit-user-select: none; transition: text-decoration-color 0.2s; }
+  .title-last-word { display: inline-block; cursor: pointer; user-select: none; -webkit-user-select: none; }
   .title-word.struck { text-decoration: line-through; text-decoration-color: #f39c12; text-decoration-thickness: 3px; }
   #restartBtn { background: #27ae60; color: #fff; border: none; padding: 10px 18px; font-size: 14px; margin-top: 4px; }
   #message { min-height: 20px; font-size: 13px; text-align: center; color: #c0392b; font-weight: 600; padding: 0 8px; }
@@ -82,7 +108,13 @@
     <div><span id="lblRound">Round</span>: <span id="round">1</span></div>
     <div><span id="lblKilled">Killed</span>: <span id="killed">0</span></div>
   </div>
-  <div id="tips"></div>
+  <div id="controls">
+    <button id="ctrlBtn"></button>
+    <button id="useBtn"></button>
+    <button id="infoBtn"></button>
+  </div>
+  <div id="statusBar"><span id="keyStatus"></span></div>
+  <div id="eventLog"></div>
   <div id="canvasWrap">
     <div id="cubeStage">
       <canvas id="canvas"></canvas>
@@ -90,14 +122,9 @@
     </div>
   </div>
   <div id="inventory">
-    <div id="invLabel"></div>
     <div id="invSlots"></div>
   </div>
-  <div id="controls">
-    <button id="ctrlBtn"></button>
-    <button id="useBtn"></button>
-    <button id="infoBtn"></button>
-  </div>
+  <div id="tips"></div>
   <div id="message"></div>
   <button id="restartBtn" style="display:none"></button>
 </div>
@@ -184,6 +211,7 @@ const I18N = {
     enemyDropped: (itemName) => `💼 Enemy dropped: ${itemName}`,
     godmodeOn: '🛡 Test mode enabled',
     godmodeOff: 'Test mode disabled',
+    roundSkipped: '⏭ Round skipped (test)',
     tiltHttpsRequired: '⚠ Tilt only works on HTTPS or localhost',
     tiltPermDenied: 'Tilt sensor permission denied',
     tiltPrompt: 'Tilt your device to move',
@@ -202,10 +230,11 @@ const I18N = {
     swapPrompt: 'Pick a slot to replace, or skip.',
     swapMandatory: 'This item is required. Pick a slot to replace.',
     replaceSlot: 'Replace slot',
+    currentInv: 'Your inventory (click to pre-select slot)',
     swapSkip: 'Leave item on the map',
     newItem: 'NEW',
     infoTitle: 'Help',
-    hint_knife: '🔪 Knife — auto-kills enemy on contact, but ONLY when selected in inventory',
+    hint_knife: '🔪 Knife — auto-kills a regular enemy on contact, but ONLY when selected in inventory. Does NOT work against the boss.',
     hint_shield: '🛡 Shield — absorbs one death, but ONLY when selected in inventory',
     hint_superknife: '🍴 Super-knife — kills regular enemies without being spent (selected only). Boss needs 2 hits, consumed.',
     hint_clock: '⏰ Clock — use to freeze enemies and maze for 3 turns',
@@ -299,6 +328,7 @@ const I18N = {
     enemyDropped: (itemName) => `💼 Враг выронил: ${itemName}`,
     godmodeOn: '🛡 Тестовый режим включён',
     godmodeOff: 'Тестовый режим выключен',
+    roundSkipped: '⏭ Раунд пропущен (тест)',
     tiltHttpsRequired: '⚠ Наклон работает только на HTTPS или localhost',
     tiltPermDenied: 'Доступ к датчику наклона отклонён',
     tiltPrompt: 'Наклоняй устройство для движения',
@@ -317,10 +347,11 @@ const I18N = {
     swapPrompt: 'Выбери слот для замены или пропусти.',
     swapMandatory: 'Этот предмет обязателен. Выбери слот для замены.',
     replaceSlot: 'Заменить слот',
+    currentInv: 'Твой инвентарь (клик — выбрать слот для замены)',
     swapSkip: 'Оставить предмет на карте',
     newItem: 'НОВОЕ',
     infoTitle: 'Справка',
-    hint_knife: '🔪 Нож — убивает врага автоматически при контакте, ТОЛЬКО если выбран в инвентаре',
+    hint_knife: '🔪 Нож — убивает обычного врага автоматически при контакте, ТОЛЬКО если выбран в инвентаре. Против босса НЕ работает.',
     hint_shield: '🛡 Щит — поглощает одну смерть, ТОЛЬКО если выбран в инвентаре',
     hint_superknife: '🍴 Супер-нож — убивает обычных врагов без траты (только если выбран). Босс: 2 удара, тратится.',
     hint_clock: '⏰ Часы — использование замораживает врагов и лабиринт на 3 хода',
@@ -414,6 +445,7 @@ const I18N = {
     enemyDropped: (itemName) => `💼 Ворог випустив: ${itemName}`,
     godmodeOn: '🛡 Тестовий режим увімкнено',
     godmodeOff: 'Тестовий режим вимкнено',
+    roundSkipped: '⏭ Раунд пропущено (тест)',
     tiltHttpsRequired: '⚠ Нахил працює тільки на HTTPS або localhost',
     tiltPermDenied: 'Доступ до акселерометра відхилено',
     tiltPrompt: 'Нахили пристрій для руху',
@@ -432,10 +464,11 @@ const I18N = {
     swapPrompt: 'Обери слот для заміни, або пропусти.',
     swapMandatory: 'Цей предмет обов\'язковий. Обери слот для заміни.',
     replaceSlot: 'Замінити слот',
+    currentInv: 'Твій інвентар (клік — обрати слот для заміни)',
     swapSkip: 'Залишити предмет на карті',
     newItem: 'НОВЕ',
     infoTitle: 'Довідка',
-    hint_knife: '🔪 Ніж — вбиває ворога автоматично при контакті, ТІЛЬКИ якщо вибраний в інвентарі',
+    hint_knife: '🔪 Ніж — вбиває звичайного ворога автоматично при контакті, ТІЛЬКИ якщо вибраний в інвентарі. Проти боса НЕ працює.',
     hint_shield: '🛡 Щит — поглинає одну смерть, ТІЛЬКИ якщо вибраний в інвентарі',
     hint_superknife: '🍴 Супер-ніж — вбиває звичайних ворогів без витрати (тільки вибраний). Бос: 2 удари, тратиться.',
     hint_clock: '⏰ Годинник — використати: заморожує ворогів і лабіринт на 3 ходи',
@@ -808,6 +841,8 @@ function far3(c) {
 }
 
 function newGame() {
+  eventLog.length = 0;
+  renderEventLog();
   state = {
     walls: null,
     tiles: Array.from({length: GRID}, () => new Array(GRID).fill('normal')),
@@ -1392,6 +1427,26 @@ function dropItemAt(pos, type) {
   showMessage(t('enemyDropped', itemName(type)));
 }
 
+function pushEnemyAwayFrom(e, from) {
+  const s = state;
+  // Try preferred (the cell the enemy came from, if given)
+  if (from && inBounds(from.x, from.y)) {
+    const occupied = s.enemies.some(x => x !== e && x.x === from.x && x.y === from.y);
+    if (!occupied && !(from.x === s.player.x && from.y === s.player.y)) {
+      e.x = from.x; e.y = from.y; return;
+    }
+  }
+  // Any neighbor not on player, not on another enemy
+  for (const d of DIR_KEYS) {
+    const nx = e.x + DIRS[d].dx, ny = e.y + DIRS[d].dy;
+    if (!inBounds(nx, ny)) continue;
+    if (nx === s.player.x && ny === s.player.y) continue;
+    if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) continue;
+    e.x = nx; e.y = ny; return;
+  }
+  // No valid neighbor — enemy stays (worst case)
+}
+
 function resolvePlayerEnemyCollision() {
   const s = state;
   const p = s.player;
@@ -1407,7 +1462,7 @@ function resolvePlayerEnemyCollision() {
         return false;
       }
       if (invincible) { damageEnemy(e, 'invincible'); showMessage(t('invincibleKilled', enemyName(e.type))); return false; }
-      if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+      if (selectedIs('shield')) { consumeSelected(); e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('shieldBlocked')); renderInventory(); return false; }
       s.gameOver = true;
       showMessage(t('killedByBoss'));
       render(); renderInventory(); updateHUD();
@@ -1426,7 +1481,7 @@ function resolvePlayerEnemyCollision() {
       return false;
     }
     if (invincible) { damageEnemy(e, 'invincible'); showMessage(t('invincibleKilled', enemyName(e.type))); return false; }
-    if (selectedIs('shield')) { consumeSelected(); damageEnemy(e, 'shield'); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+    if (selectedIs('shield')) { consumeSelected(); e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('shieldBlocked')); renderInventory(); return false; }
     s.gameOver = true;
     showMessage(t('diedEnemy'));
     render(); renderInventory(); updateHUD();
@@ -1505,10 +1560,16 @@ function useItem() {
 }
 
 // =================== ENEMY AI ===================
-function enemyKillPlayer(msgKey) {
+function enemyKillPlayer(msgKey, attacker) {
   const s = state;
   if (invincible) { showMessage(t('invincibleKilled', enemyName('regular'))); return false; }
-  if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+  if (selectedIs('shield')) {
+    consumeSelected();
+    if (attacker) attacker.frozen = Math.max(attacker.frozen, 1);
+    showMessage(t('shieldBlocked'));
+    renderInventory();
+    return false;
+  }
   s.gameOver = true;
   showMessage(t(msgKey));
   showRestart();
@@ -1531,19 +1592,19 @@ function enemyStepOnto(e) {
     s.mines = s.mines.filter(m => m.id !== mine.id);
     return damageEnemy(e, 'mine');
   }
-  // Pick up item (but enemies can't see/pickup keys — they walk over key without taking it)
+  // Pick up item (but enemies can't see/pickup keys or super-knives — they walk over)
+  // Patrol enemies never pick up items at all
   const itemIdx = s.items.findIndex(it => same(it, e));
-  if (itemIdx !== -1 && !e.inv) {
+  if (itemIdx !== -1 && !e.inv && e.type !== 'patrol') {
     const item = s.items[itemIdx];
-    if (item.type === 'key') {
-      // Keys are invisible to enemies — they walk over, key stays
+    if (item.type === 'key' || item.type === 'superknife') {
+      // Invisible to enemies — item stays
     } else {
-      // Only pick up tactically useful items for enemy
       const usable = ['knife','tilde','mine','stealthmine','random','shield'];
       if (usable.includes(item.type)) {
         e.inv = item.type;
         s.items.splice(itemIdx, 1);
-      } else if (['clock','superknife','slot','crossbow','amulet','restart'].includes(item.type)) {
+      } else if (['clock','slot','crossbow','amulet','restart'].includes(item.type)) {
         s.items.splice(itemIdx, 1); // destroyed by enemy walking over
       }
     }
@@ -1551,7 +1612,7 @@ function enemyStepOnto(e) {
   return false;
 }
 
-function enemyCollidesWithPlayer(e) {
+function enemyCollidesWithPlayer(e, fromPos) {
   const s = state;
   const p = s.player;
   if (!same(e, p)) return false;
@@ -1563,8 +1624,8 @@ function enemyCollidesWithPlayer(e) {
       renderInventory();
       return true;
     }
-    if (enemyKillPlayer('killedByBoss')) return true;
-    // player survived via shield/invincible, kill the enemy? No, boss continues
+    const killed = enemyKillPlayer('killedByBoss', e);
+    if (!killed) pushEnemyAwayFrom(e, fromPos);
     return true;
   }
 
@@ -1578,8 +1639,8 @@ function enemyCollidesWithPlayer(e) {
     damageEnemy(e, 'superknife');
     return true;
   }
-  if (enemyKillPlayer('diedEnemy')) return true;
-  // Player had shield — enemy kills itself on impact? For fairness, shield only blocks, enemy survives
+  const killed = enemyKillPlayer('diedEnemy', e);
+  if (!killed) pushEnemyAwayFrom(e, fromPos);
   return true;
 }
 
@@ -1594,7 +1655,7 @@ function enemyTurn() {
     if (e.frozen > 0) continue;
     const blockers = s.enemies.filter(x => x !== e);
     if (hasLineOfSight({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, blockers)) {
-      if (enemyKillPlayer('diedSniper')) return;
+      if (enemyKillPlayer('diedSniper', e)) return;
     }
   }
 
@@ -1663,13 +1724,34 @@ function enemyTurn() {
     if (!next) continue;
 
     if (e.onMineId !== null) e.onMineId = null;
+    const fromX = e.x, fromY = e.y;
     e.x = next.x; e.y = next.y;
+
+    // Ice slide for enemies (ghost doesn't slide)
+    if (e.type !== 'ghost' && s.tiles[e.y][e.x] === 'ice') {
+      const dx = e.x - fromX, dy = e.y - fromY;
+      let slideDir = null;
+      if (dx > 0) slideDir = 'e';
+      else if (dx < 0) slideDir = 'w';
+      else if (dy > 0) slideDir = 's';
+      else if (dy < 0) slideDir = 'n';
+      let iceIter = 0;
+      while (slideDir && s.tiles[e.y][e.x] === 'ice' && iceIter < 12) {
+        iceIter++;
+        const def = DIRS[slideDir];
+        const tx = e.x + def.dx, ty = e.y + def.dy;
+        if (!inBounds(tx, ty) || s.walls[e.y][e.x][slideDir]) break;
+        if (s.enemies.some(x => x !== e && x.x === tx && x.y === ty)) break;
+        if (tx === s.player.x && ty === s.player.y) break;
+        e.x = tx; e.y = ty;
+      }
+    }
 
     checkTeleport(e);
     if (enemyStepOnto(e)) continue;
     // Mud effect
     if (s.tiles[e.y][e.x] === 'mud') e.skipNextTurn = true;
-    if (enemyCollidesWithPlayer(e)) { if (s.gameOver) return; continue; }
+    if (enemyCollidesWithPlayer(e, {x: fromX, y: fromY})) { if (s.gameOver) return; continue; }
   }
 }
 
@@ -1705,6 +1787,15 @@ function openShop() {
     html += `<div class="shop-choice" data-item="${type}"><div class="shop-emoji">${itemEmoji(type)}</div><div class="shop-name">${itemName(type)}</div><div class="shop-desc">${t('hint_' + type)}</div></div>`;
   }
   html += `</div><button class="shop-skip">${t('shopSkip')}</button>`;
+  // Current inventory preview (clickable slots to change selection)
+  html += `<div class="swap-section-label" style="margin-top:14px">${t('currentInv')}:</div>`;
+  html += `<div class="swap-choices" id="shopInvPreview">`;
+  for (let i = 0; i < s.player.inv.length; i++) {
+    const cur = s.player.inv[i];
+    const isSel = i === s.player.selectedSlot;
+    html += `<div class="swap-choice${isSel ? ' swap-new' : ''}" data-sel="${i}" title="${cur ? itemName(cur) : ''}"><div class="swap-emoji">${cur ? itemEmoji(cur) : '·'}</div><div class="swap-name">${i+1}</div></div>`;
+  }
+  html += `</div>`;
   c.innerHTML = html;
   c.querySelectorAll('.shop-choice').forEach(el => {
     el.addEventListener('click', () => {
@@ -1716,7 +1807,7 @@ function openShop() {
       } else {
         const slotIdx = emptySlotIndex();
         if (slotIdx === -1) {
-          // Full - put into first selected slot replacing
+          // Full — replace selected slot (user previewed which to replace)
           s.player.inv[s.player.selectedSlot] = type;
         } else {
           s.player.inv[slotIdx] = type;
@@ -1728,6 +1819,19 @@ function openShop() {
     });
   });
   c.querySelector('.shop-skip').addEventListener('click', closeShop);
+  c.querySelectorAll('[data-sel]').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.getAttribute('data-sel'), 10);
+      s.player.selectedSlot = idx;
+      // Re-highlight previews
+      c.querySelectorAll('[data-sel]').forEach(x => {
+        const i = parseInt(x.getAttribute('data-sel'), 10);
+        x.classList.toggle('swap-new', i === idx);
+      });
+      renderInventory();
+      render();
+    });
+  });
   modal.classList.add('open');
 }
 function closeShop() {
@@ -1753,6 +1857,8 @@ function openSwapModal() {
   for (let i = 0; i < s.player.inv.length; i++) {
     const cur = s.player.inv[i];
     if (!cur) continue;
+    // Can't replace a key with a key
+    if (newType === 'key' && cur === 'key') continue;
     html += `<div class="swap-choice" data-slot="${i}" title="${itemName(cur)}"><div class="swap-emoji">${itemEmoji(cur)}</div><div class="swap-name">${i+1}</div></div>`;
   }
   html += `</div>`;
@@ -1762,8 +1868,18 @@ function openSwapModal() {
   c.querySelectorAll('.swap-choice[data-slot]').forEach(el => {
     el.addEventListener('click', () => {
       const slotIdx = parseInt(el.getAttribute('data-slot'), 10);
+      const oldItem = s.player.inv[slotIdx];
       s.player.inv[slotIdx] = pendingPickup.type;
+      // New item removed from world
+      const newItemPos = { x: s.items[pendingPickup.worldIndex].x, y: s.items[pendingPickup.worldIndex].y };
       s.items.splice(pendingPickup.worldIndex, 1);
+      // Old item drops on the floor at player position (which equals new item's old position)
+      if (oldItem && oldItem !== 'key') {
+        // Avoid stacking if somehow something else there already
+        if (!s.items.some(it => it.x === newItemPos.x && it.y === newItemPos.y)) {
+          s.items.push({ type: oldItem, x: newItemPos.x, y: newItemPos.y });
+        }
+      }
       if (pendingPickup.type === 'key') showMessage(t('gotKey'));
       else showMessage(t('pickedUp', itemName(pendingPickup.type)));
       closeSwap(true);
@@ -1912,12 +2028,22 @@ function render() {
   for (const e of s.enemies) {
     const cx = PAD + e.x * CELL + CELL/2, cy = PAD + e.y * CELL + CELL/2;
     if (e.type === 'boss') {
-      ctx.fillStyle = e.frozen > 0 ? '#a29bfe' : '#6c5ce7';
-      ctx.fillRect(PAD + e.x * CELL + 2, PAD + e.y * CELL + 2, CELL - 4, CELL - 4);
-      ctx.font = `${Math.floor(CELL * 0.3)}px sans-serif`;
+      // White square background
       ctx.fillStyle = '#fff';
+      ctx.fillRect(PAD + e.x * CELL + 2, PAD + e.y * CELL + 2, CELL - 4, CELL - 4);
+      // Boss emoji (same icon used on exit)
+      ctx.font = `${Math.floor(CELL * 0.6)}px -apple-system, "Segoe UI Emoji", sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('♥' + e.hp, cx, cy + 1);
+      ctx.fillText('👹', cx, cy + 1);
+      // HP as concentric brown rings
+      ctx.strokeStyle = '#8b4513';
+      ctx.lineWidth = 2;
+      for (let h = 0; h < e.hp; h++) {
+        const r = CELL * 0.38 + h * 3;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       if (e.frozen > 0) { ctx.strokeStyle = '#2874e7'; ctx.lineWidth = 3; ctx.strokeRect(PAD + e.x*CELL+2, PAD + e.y*CELL+2, CELL-4, CELL-4); }
     } else {
       let fill = '#e74c3c';
@@ -1940,30 +2066,47 @@ function render() {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(itemEmoji(e.inv), cx, cy + 1);
       } else if (e.type === 'patrol') {
-        // Draw double-headed arrow manually to ensure visibility
+        // Double-headed arrow along patrol axis
         ctx.strokeStyle = '#fff';
         ctx.fillStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         const armLen = CELL * 0.22;
         const headSize = CELL * 0.09;
-        // horizontal line
-        ctx.beginPath();
-        ctx.moveTo(cx - armLen, cy);
-        ctx.lineTo(cx + armLen, cy);
-        ctx.stroke();
-        // left arrow head
-        ctx.beginPath();
-        ctx.moveTo(cx - armLen, cy);
-        ctx.lineTo(cx - armLen + headSize, cy - headSize);
-        ctx.lineTo(cx - armLen + headSize, cy + headSize);
-        ctx.closePath(); ctx.fill();
-        // right arrow head
-        ctx.beginPath();
-        ctx.moveTo(cx + armLen, cy);
-        ctx.lineTo(cx + armLen - headSize, cy - headSize);
-        ctx.lineTo(cx + armLen - headSize, cy + headSize);
-        ctx.closePath(); ctx.fill();
+        const vertical = (e.dir === 'n' || e.dir === 's');
+        if (vertical) {
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - armLen);
+          ctx.lineTo(cx, cy + armLen);
+          ctx.stroke();
+          // top arrow
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - armLen);
+          ctx.lineTo(cx - headSize, cy - armLen + headSize);
+          ctx.lineTo(cx + headSize, cy - armLen + headSize);
+          ctx.closePath(); ctx.fill();
+          // bottom arrow
+          ctx.beginPath();
+          ctx.moveTo(cx, cy + armLen);
+          ctx.lineTo(cx - headSize, cy + armLen - headSize);
+          ctx.lineTo(cx + headSize, cy + armLen - headSize);
+          ctx.closePath(); ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(cx - armLen, cy);
+          ctx.lineTo(cx + armLen, cy);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - armLen, cy);
+          ctx.lineTo(cx - armLen + headSize, cy - headSize);
+          ctx.lineTo(cx - armLen + headSize, cy + headSize);
+          ctx.closePath(); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(cx + armLen, cy);
+          ctx.lineTo(cx + armLen - headSize, cy - headSize);
+          ctx.lineTo(cx + armLen - headSize, cy + headSize);
+          ctx.closePath(); ctx.fill();
+        }
       } else if (e.type === 'sniper') {
         ctx.font = `${Math.floor(CELL * 0.38)}px -apple-system, "Segoe UI Emoji", sans-serif`;
         ctx.fillStyle = '#fff';
@@ -2035,12 +2178,7 @@ function render() {
   }
 
   const keysHeld = s.player.inv.filter(x => x === 'key').length;
-  if (s.keysNeeded > 0) {
-    ctx.font = `14px sans-serif`;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillStyle = '#111';
-    ctx.fillText(`🔑 ${keysHeld}/${s.keysNeeded}`, PAD + 4, PAD + 4);
-  }
+  // key counter now displayed in HTML status bar, not on canvas
 }
 
 function renderInventory() {
@@ -2056,15 +2194,45 @@ function renderInventory() {
     slot.addEventListener('click', () => { state.player.selectedSlot = i; renderInventory(); render(); });
     container.appendChild(slot);
   }
-  const amu = amuletCount();
-  const lbl = document.getElementById('invLabel');
-  lbl.textContent = amu > 0 ? t('invLabelAmulet', amu, 3+amu) : t('invLabel');
+  updateStatusBar();
+}
+
+function updateStatusBar() {
+  const s = state;
+  const keyEl = document.getElementById('keyStatus');
+  const bar = document.getElementById('statusBar');
+  if (keyEl) {
+    const keysHeld = s.player.inv.filter(x => x === 'key').length;
+    keyEl.textContent = s.keysNeeded > 0 ? `🔑 ${keysHeld} / ${s.keysNeeded}` : '';
+  }
+  if (bar) {
+    const empty = !keyEl || !keyEl.textContent;
+    bar.style.display = empty ? 'none' : 'flex';
+  }
 }
 
 function updateHUD() {
   document.getElementById('moves').textContent = state.moves;
   document.getElementById('round').textContent = state.round;
   document.getElementById('killed').textContent = state.killed;
+  updateStatusBar();
+}
+
+const eventLog = [];
+const EVENT_LOG_MAX = 4;
+
+function logEvent(text) {
+  if (!text) return;
+  eventLog.push(text);
+  if (eventLog.length > EVENT_LOG_MAX) eventLog.shift();
+  renderEventLog();
+}
+
+function renderEventLog() {
+  const el = document.getElementById('eventLog');
+  if (!el) return;
+  el.innerHTML = eventLog.map(line => `<div class="log-entry">${line}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
 }
 
 let msgTimer = null;
@@ -2073,6 +2241,7 @@ function showMessage(text) {
   el.textContent = text;
   if (msgTimer) clearTimeout(msgTimer);
   msgTimer = setTimeout(() => { el.textContent = ''; }, 2800);
+  logEvent(text);
 }
 function showRestart() { document.getElementById('restartBtn').style.display = 'inline-block'; }
 
@@ -2234,6 +2403,34 @@ function onTitleTap() {
   }
 }
 
+let lastWordTapCount = 0;
+let lastWordTapTimer = null;
+function onLastWordTap() {
+  lastWordTapCount++;
+  clearTimeout(lastWordTapTimer);
+  lastWordTapTimer = setTimeout(() => { lastWordTapCount = 0; }, 1500);
+  if (lastWordTapCount >= 5) {
+    lastWordTapCount = 0;
+    clearTimeout(lastWordTapTimer);
+    skipRound();
+  }
+}
+
+function skipRound() {
+  const s = state;
+  if (s.gameOver || s.transitioning) return;
+  s.transitioning = true;
+  // Use last move dir or default 'n' for cube animation
+  const exitDir = s.player.lastMoveDir || 'n';
+  s.previousExitInfo = { exit: {...s.player}, dir: exitDir };
+  showMessage(t('roundSkipped'));
+  if (s.round >= 10) {
+    setTimeout(() => openShop(), 300);
+  } else {
+    cubeTransition(exitDir, () => { setupRound(s.round + 1); }).then(() => { s.transitioning = false; });
+  }
+}
+
 function cycleControl() {
   const cycle = IS_MOBILE ? CONTROL_CYCLE_MOBILE : CONTROL_CYCLE_DESKTOP;
   const idx = cycle.indexOf(control);
@@ -2260,13 +2457,20 @@ function setControl(c) {
 
 // =================== LABELS ===================
 function applyLabels() {
-  // Render title with first word in a clickable span (target of secret strike-through)
+  // Render title with first and last words as clickable spans (two secret gestures)
   const title = t('title');
-  const spaceIdx = title.indexOf(' ');
-  const firstWord = spaceIdx === -1 ? title : title.substring(0, spaceIdx);
-  const rest = spaceIdx === -1 ? '' : title.substring(spaceIdx);
-  document.getElementById('gameTitle').innerHTML =
-    `<span class="title-word${invincible ? ' struck' : ''}">${firstWord}</span>${rest}`;
+  const parts = title.split(' ');
+  let titleHtml;
+  if (parts.length === 1) {
+    titleHtml = `<span class="title-word${invincible ? ' struck' : ''}">${parts[0]}</span>`;
+  } else {
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    const middle = parts.slice(1, -1).join(' ');
+    const middleHtml = middle ? ` ${middle} ` : ' ';
+    titleHtml = `<span class="title-word${invincible ? ' struck' : ''}">${first}</span>${middleHtml}<span class="title-last-word">${last}</span>`;
+  }
+  document.getElementById('gameTitle').innerHTML = titleHtml;
   document.title = title;
   document.getElementById('lblMoves').textContent = t('moves');
   document.getElementById('lblRound').textContent = t('round');
@@ -2304,9 +2508,9 @@ function init() {
     document.getElementById('modal').classList.remove('open');
   });
   document.getElementById('gameTitle').addEventListener('click', (e) => {
-    if (e.target && e.target.classList && e.target.classList.contains('title-word')) {
-      onTitleTap();
-    }
+    if (!e.target || !e.target.classList) return;
+    if (e.target.classList.contains('title-word')) onTitleTap();
+    else if (e.target.classList.contains('title-last-word')) onLastWordTap();
   });
   document.getElementById('restartBtn').addEventListener('click', () => {
     document.getElementById('restartBtn').style.display = 'none';
