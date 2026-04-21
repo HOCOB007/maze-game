@@ -25,12 +25,14 @@
   #hud { display: flex; gap: 14px; font-size: 13px; color: #555; flex-wrap: wrap; justify-content: center; }
   #hud span { font-weight: 700; color: #111; }
   #objective { padding: 6px 12px; background: #fff8e1; border: 1px solid #ffd54f; border-radius: 6px; font-size: 13px; text-align: center; max-width: 460px; line-height: 1.35; }
-  #tips { display: flex; flex-direction: column; gap: 4px; max-width: 460px; width: 100%; }
-  .tip { padding: 5px 10px; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; font-size: 12px; line-height: 1.3; }
-  #eventLog {
+  #topRow {
+    display: flex; gap: 6px;
     max-width: 396px; width: 100%;
-    min-height: 42px; max-height: 60px;
-    overflow-y: auto;
+    min-height: 95px;
+  }
+  #eventLog {
+    flex: 1 1 50%; width: 50%;
+    max-height: 95px; overflow-y: auto;
     padding: 4px 8px;
     background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px;
     font-size: 11px; line-height: 1.35; color: #333;
@@ -38,6 +40,16 @@
   }
   #eventLog .log-entry { padding: 1px 0; border-bottom: 1px dashed #eee; }
   #eventLog .log-entry:last-child { border-bottom: none; font-weight: 600; color: #111; }
+  #newsBlock {
+    flex: 1 1 50%; width: 50%;
+    max-height: 95px; overflow-y: auto;
+    padding: 4px 8px;
+    background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px;
+    font-size: 11px; line-height: 1.35; color: #1b5e20;
+  }
+  #newsBlock .news-entry { padding: 2px 0; border-bottom: 1px dashed #c8e6c9; }
+  #newsBlock .news-entry:last-child { border-bottom: none; }
+  #newsBlock:empty { display: none; }
   #statusBar {
     display: flex; justify-content: space-between; align-items: center;
     max-width: 396px; width: 100%; padding: 0 4px;
@@ -114,7 +126,10 @@
     <button id="infoBtn"></button>
   </div>
   <div id="statusBar"><span id="keyStatus"></span></div>
-  <div id="eventLog"></div>
+  <div id="topRow">
+    <div id="eventLog"></div>
+    <div id="newsBlock"></div>
+  </div>
   <div id="canvasWrap">
     <div id="cubeStage">
       <canvas id="canvas"></canvas>
@@ -124,7 +139,6 @@
   <div id="inventory">
     <div id="invSlots"></div>
   </div>
-  <div id="tips"></div>
   <div id="message"></div>
   <button id="restartBtn" style="display:none"></button>
 </div>
@@ -212,6 +226,9 @@ const I18N = {
     godmodeOn: '🛡 Test mode enabled',
     godmodeOff: 'Test mode disabled',
     roundSkipped: '⏭ Round skipped (test)',
+    heartGained: '❤️ Heart collected — one extra life',
+    heartSaved: '❤️ Heart saved you from death',
+    bossHeartGained: '❤️ Boss grabbed a heart! +1 HP',
     tiltHttpsRequired: '⚠ Tilt only works on HTTPS or localhost',
     tiltPermDenied: 'Tilt sensor permission denied',
     tiltPrompt: 'Tilt your device to move',
@@ -247,6 +264,7 @@ const I18N = {
     hint_amulet: '🔮 Amulet — while held, each one delays maze regeneration by +1 turn (so regen happens every 3+N turns instead of 3). Use it to regen immediately and consume one.',
     hint_restart: '🔁 Restart — restarts current round with new map (inventory kept)',
     hint_key: '🔑 Key — unlocks exit on locked rounds',
+    hint_heart: '❤️ Heart — grants one extra life (protective aura). Automatic save from one death. Only one can be held.',
     hint_regular: '🟥 Regular enemy — chases you via BFS',
     hint_patrol: '🟧 Patrol — walks back and forth, ignores you',
     hint_sniper: '🎯 Sniper — stands still, kills you on line of sight without walls',
@@ -257,7 +275,8 @@ const I18N = {
     hint_mud: '🟫 Mud — who steps on it loses next turn (player and enemies)',
     hint_conveyor: '➡️ Conveyor — pushes you one extra cell after move',
     hint_lock: '🔒 Lock — exit is locked until you get the key',
-    hint_fog: '🌫 Fog of war — only 5 cells around you are visible'
+    hint_fog: '🌫 Fog of war — only 5 cells around you are visible',
+    hint_wrap: '🌀 Wrap passage — step through the center gap in a wall, appear on the opposite edge'
   },
   ru: {
     title: 'Лабиринт с ловушками', moves: 'Шагов', round: 'Раунд', killed: 'Убито',
@@ -329,6 +348,9 @@ const I18N = {
     godmodeOn: '🛡 Тестовый режим включён',
     godmodeOff: 'Тестовый режим выключен',
     roundSkipped: '⏭ Раунд пропущен (тест)',
+    heartGained: '❤️ Сердце подобрано — доп. жизнь',
+    heartSaved: '❤️ Сердце спасло от смерти',
+    bossHeartGained: '❤️ Босс схватил сердце! +1 HP',
     tiltHttpsRequired: '⚠ Наклон работает только на HTTPS или localhost',
     tiltPermDenied: 'Доступ к датчику наклона отклонён',
     tiltPrompt: 'Наклоняй устройство для движения',
@@ -364,6 +386,7 @@ const I18N = {
     hint_amulet: '🔮 Амулет — пока лежит в инвентаре, каждый задерживает изменение лабиринта на +1 ход (регенерация каждые 3+N ходов вместо 3). При использовании — меняет лабиринт сразу и тратится.',
     hint_restart: '🔁 Рестарт — раунд заново с новой картой (инвентарь сохраняется)',
     hint_key: '🔑 Ключ — открывает замок на выходе',
+    hint_heart: '❤️ Сердце — доп. жизнь (защитная аура). Автоматически спасает от одной смерти. Можно иметь только одно.',
     hint_regular: '🟥 Обычный враг — преследует тебя кратчайшим путём',
     hint_patrol: '🟧 Патрульный — ходит туда-назад, не преследует тебя',
     hint_sniper: '🎯 Снайпер — стоит на месте, убивает на прямой линии без стен',
@@ -374,7 +397,8 @@ const I18N = {
     hint_mud: '🟫 Грязь — пропускаешь следующий ход (и враги тоже)',
     hint_conveyor: '➡️ Конвейер — после хода тянет ещё на 1 клетку в свою сторону',
     hint_lock: '🔒 Замок — выход заблокирован до получения ключа',
-    hint_fog: '🌫 Туман войны — видно только 5 клеток вокруг'
+    hint_fog: '🌫 Туман войны — видно только 5 клеток вокруг',
+    hint_wrap: '🌀 Сквозной проход — в центре грани нет стенки, пройдёшь сквозь и окажешься на противоположной грани'
   },
   uk: {
     title: 'Лабіринт із пастками', moves: 'Кроків', round: 'Раунд', killed: 'Вбито',
@@ -481,6 +505,7 @@ const I18N = {
     hint_amulet: '🔮 Амулет — поки лежить в інвентарі, кожен затримує зміну лабіринту на +1 хід (регенерація кожні 3+N ходів замість 3). При використанні — змінює лабіринт одразу і витрачається.',
     hint_restart: '🔁 Рестарт — раунд спочатку з новою мапою (інвентар зберігається)',
     hint_key: '🔑 Ключ — відкриває замок на виході',
+    hint_heart: '❤️ Серце — дод. життя (захисна аура). Автоматично рятує від однієї смерті. Можна мати лише одне.',
     hint_regular: '🟥 Звичайний ворог — переслідує тебе найкоротшим шляхом',
     hint_patrol: '🟧 Патрульний — ходить туди-назад, не переслідує тебе',
     hint_sniper: '🎯 Снайпер — стоїть на місці, вбиває на прямій без стін',
@@ -491,7 +516,8 @@ const I18N = {
     hint_mud: '🟫 Грязь — пропускаєш наступний хід (і вороги теж)',
     hint_conveyor: "➡️ Конвеєр — після ходу тягне на 1 клітину в свою сторону",
     hint_lock: '🔒 Замок — вихід заблоковано до отримання ключа',
-    hint_fog: '🌫 Туман війни — видно тільки 5 клітин навколо'
+    hint_fog: '🌫 Туман війни — видно тільки 5 клітин навколо',
+    hint_wrap: '🌀 Наскрізний прохід — в центрі грані немає стіни, пройдеш і опинишся на протилежній грані'
   }
 };
 
@@ -545,7 +571,8 @@ const ITEM_META = {
   crossbow:   { emoji: '🏹' },
   amulet:     { emoji: '🔮' },
   restart:    { emoji: '🔁' },
-  key:        { emoji: '🔑' }
+  key:        { emoji: '🔑' },
+  heart:      { emoji: '❤️' }
 };
 const ITEM_NAMES = {
   knife: { en: 'Knife', ru: 'Нож', uk: 'Ніж' },
@@ -560,7 +587,8 @@ const ITEM_NAMES = {
   crossbow: { en: 'Crossbow', ru: 'Арбалет', uk: 'Арбалет' },
   amulet: { en: 'Amulet', ru: 'Амулет', uk: 'Амулет' },
   restart: { en: 'Restart', ru: 'Рестарт', uk: 'Рестарт' },
-  key: { en: 'Key', ru: 'Ключ', uk: 'Ключ' }
+  key: { en: 'Key', ru: 'Ключ', uk: 'Ключ' },
+  heart: { en: 'Heart', ru: 'Сердце', uk: 'Серце' }
 };
 function itemName(type) { return ITEM_NAMES[type][LANG] || ITEM_NAMES[type].en; }
 function itemEmoji(type) { return ITEM_META[type].emoji; }
@@ -619,6 +647,24 @@ function randInt(n) { return Math.floor(Math.random() * n); }
 function manhattan(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
 function same(a, b) { return a && b && a.x === b.x && a.y === b.y; }
 function inBounds(x, y) { return x >= 0 && x < GRID && y >= 0 && y < GRID; }
+
+// For pacman-wrap: returns wrapped {x,y} if movement from (fx,fy) in dir lands out of bounds
+// on an enabled wrap axis through the middle edges. Otherwise returns null.
+function wrapCoords(fx, fy, dir) {
+  const s = state;
+  if (!s) return null;
+  const center = Math.floor(GRID / 2); // 5
+  // Middle edge cells — from middle cell out. Player standing at (center, 0) moves 'n' -> wrap to (center, GRID-1)
+  if (s.wrapVertical && (fx === center - 1 || fx === center)) {
+    if (dir === 'n' && fy === 0) return { x: fx, y: GRID - 1 };
+    if (dir === 's' && fy === GRID - 1) return { x: fx, y: 0 };
+  }
+  if (s.wrapHorizontal && (fy === center - 1 || fy === center)) {
+    if (dir === 'w' && fx === 0) return { x: GRID - 1, y: fy };
+    if (dir === 'e' && fx === GRID - 1) return { x: 0, y: fy };
+  }
+  return null;
+}
 
 function hasLineOfSight(from, to, walls, blockers) {
   if (from.x === to.x && from.y === to.y) return false;
@@ -726,10 +772,17 @@ function bfsNext(from, to, walls, opts = {}) {
   const blockedSet = new Set(blockedCells.map(c => key(c.x, c.y)));
 
   const teleportPair = (x, y) => {
-    if (!useTeleport || s.teleports.length !== 2) return null;
-    const [a, b] = s.teleports;
-    if (a.x === x && a.y === y) return b;
-    if (b.x === x && b.y === y) return a;
+    if (!useTeleport) return null;
+    if (s.teleports.length === 2) {
+      const [a, b] = s.teleports;
+      if (a.x === x && a.y === y) return b;
+      if (b.x === x && b.y === y) return a;
+    }
+    if (s.teleports2.length === 2) {
+      const [a, b] = s.teleports2;
+      if (a.x === x && a.y === y) return b;
+      if (b.x === x && b.y === y) return a;
+    }
     return null;
   };
 
@@ -754,6 +807,13 @@ function bfsNext(from, to, walls, opts = {}) {
     const neighbors = ignoreWalls
       ? DIR_KEYS.map(d => ({ x: x + DIRS[d].dx, y: y + DIRS[d].dy })).filter(n => inBounds(n.x, n.y))
       : accessibleNeighbors(x, y, walls);
+    // Add pacman wrap neighbors
+    for (const d of DIR_KEYS) {
+      const wrapped = wrapCoords(x, y, d);
+      if (wrapped && !neighbors.some(n => n.x === wrapped.x && n.y === wrapped.y)) {
+        neighbors.push(wrapped);
+      }
+    }
     for (const n of neighbors) {
       const k = key(n.x, n.y);
       if (visited.has(k)) continue;
@@ -786,6 +846,10 @@ function selectedItem() { return state.player.inv[state.player.selectedSlot]; }
 function selectedIs(type) { return selectedItem() === type; }
 function findItemSlot(type) { return state.player.inv.findIndex(s => s === type); }
 function consumeSelected() { state.player.inv[state.player.selectedSlot] = null; }
+function consumeHeart() {
+  if (state.player.hasHeart) { state.player.hasHeart = false; return true; }
+  return false;
+}
 function consumeFirstOfType(type) {
   const idx = findItemSlot(type);
   if (idx !== -1) state.player.inv[idx] = null;
@@ -803,6 +867,7 @@ function cellOccupied(c) {
   for (const it of s.items) if (same(c, it)) return true;
   for (const m of s.mines) if (same(c, m)) return true;
   for (const t of s.teleports) if (same(c, t)) return true;
+  for (const t of s.teleports2) if (same(c, t)) return true;
   if (s.tiles[c.y][c.x] !== 'normal') return true;
   return false;
 }
@@ -843,18 +908,22 @@ function far3(c) {
 function newGame() {
   eventLog.length = 0;
   renderEventLog();
+  const nb = document.getElementById('newsBlock');
+  if (nb) nb.innerHTML = '';
   state = {
     walls: null,
     tiles: Array.from({length: GRID}, () => new Array(GRID).fill('normal')),
     conveyorDirs: Array.from({length: GRID}, () => new Array(GRID).fill(null)),
-    player: { x: 0, y: 0, inv: new Array(INITIAL_INV_SIZE).fill(null), invSize: INITIAL_INV_SIZE, selectedSlot: 0, onMineId: null, skipNextTurn: false, lastMoveDir: null },
+    player: { x: 0, y: 0, inv: new Array(INITIAL_INV_SIZE).fill(null), invSize: INITIAL_INV_SIZE, selectedSlot: 0, onMineId: null, skipNextTurn: false, lastMoveDir: null, hasHeart: false },
     keysNeeded: 0,
     enemies: [], items: [], mines: [], mineIdCounter: 0,
-    teleports: [], exit: { x: 0, y: 0 },
+    teleports: [], teleports2: [], exit: { x: 0, y: 0 },
     round: 1, moves: 0, killed: 0,
     movesSinceRegen: 0, freezeMaze: 0,
     gameOver: false, transitioning: false,
     fogOfWar: false,
+    wrapHorizontal: false,  // pacman-style: left <-> right
+    wrapVertical: false,    // pacman-style: top <-> bottom
     startCorner: { x: 0, y: 0 },
     seenItems: new Set(), seenEnemies: new Set(['regular']), seenTiles: new Set()
   };
@@ -927,7 +996,7 @@ function setupRound(round) {
   s.round = round;
   s.movesSinceRegen = 0;
   s.freezeMaze = 0;
-  s.items = []; s.mines = []; s.teleports = []; s.enemies = [];
+  s.items = []; s.mines = []; s.teleports = []; s.teleports2 = []; s.enemies = [];
   s.player.skipNextTurn = false;
   s.tiles = Array.from({length: GRID}, () => new Array(GRID).fill('normal'));
   s.conveyorDirs = Array.from({length: GRID}, () => new Array(GRID).fill(null));
@@ -943,6 +1012,7 @@ function setupRound(round) {
   s.player.x = start.x; s.player.y = start.y;
   s.player.onMineId = null;
   s.player.lastMoveDir = null;
+  s.player.hasHeart = false;
 
   const exits = getExitCandidates(start);
   s.exit = {...exits[randInt(exits.length)]};
@@ -950,6 +1020,10 @@ function setupRound(round) {
 
   const spec = roundSpec(round);
   s.fogOfWar = spec.fog;
+  // Pac-man wraps — from round 3 onward
+  s.wrapHorizontal = round >= 3 && Math.random() < 0.30;
+  s.wrapVertical = round >= 3 && Math.random() < 0.30;
+  if (s.wrapHorizontal || s.wrapVertical) { s.seenTiles.add('__wrap__'); }
 
   s.keysNeeded = spec.keys;
   if (spec.keys > 0) { s.tiles[s.exit.y][s.exit.x] = 'lock'; s.seenTiles.add('lock'); }
@@ -1009,6 +1083,15 @@ function setupRound(round) {
       if (b) s.teleports.push(b); else s.teleports.pop();
     }
   }
+  // Second (orange) teleport pair from round 20
+  if (round >= 20) {
+    const a = randomEmptyCell(c => manhattan(c, s.player) >= 4 && manhattan(c, s.exit) >= 4);
+    if (a) {
+      s.teleports2.push(a);
+      const b = randomEmptyCell(c => manhattan(c, s.player) >= 4 && manhattan(c, s.exit) >= 4 && manhattan(c, a) >= 3);
+      if (b) s.teleports2.push(b); else s.teleports2.pop();
+    }
+  }
   for (let i = 0; i < spec.tilde; i++) addItem('tilde');
   for (let i = 0; i < spec.clock; i++) addItem('clock');
   for (let i = 0; i < spec.mine; i++) addItem('mine');
@@ -1024,6 +1107,13 @@ function setupRound(round) {
     const pos = randomEmptyCell(c => manhattan(c, s.player) >= 4 && manhattan(c, s.exit) >= 4);
     if (pos) { s.items.push({ type: 'key', x: pos.x, y: pos.y }); s.seenItems.add('key'); }
   }
+  // Heart spawn: always on boss rounds, 20% chance otherwise
+  const hasBossThisRound = spec.boss > 0;
+  const heartRoll = hasBossThisRound || Math.random() < 0.20;
+  if (heartRoll && round >= 3) {
+    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 3);
+    if (pos) { s.items.push({ type: 'heart', x: pos.x, y: pos.y }); s.seenItems.add('heart'); }
+  }
 
   // Build tips for this round
   const newItems = [...s.seenItems].filter(x => !prevItems.has(x));
@@ -1031,10 +1121,10 @@ function setupRound(round) {
   const newTiles = [...s.seenTiles].filter(x => !prevTiles.has(x));
   if (spec.fog && !state._fogTipShown) { newTiles.push('__fog__'); state._fogTipShown = true; }
 
-  renderTips([
+  renderNews([
     ...newEnemies.map(k => t('hint_' + k)),
     ...newItems.map(k => t('hint_' + k)),
-    ...newTiles.map(k => k === '__fog__' ? t('hint_fog') : t('hint_' + k))
+    ...newTiles.map(k => k === '__fog__' ? t('hint_fog') : k === '__wrap__' ? t('hint_wrap') : t('hint_' + k))
   ].filter(Boolean));
 
   render();
@@ -1044,11 +1134,11 @@ function setupRound(round) {
   showMessage(t('roundStart', round));
 }
 
-function renderTips(tips) {
-  const el = document.getElementById('tips');
-  if (!tips.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="tip"><strong>${t('newThisRound')}</strong></div>` +
-    tips.map(tp => `<div class="tip">${tp}</div>`).join('');
+function renderNews(entries) {
+  const el = document.getElementById('newsBlock');
+  if (!el) return;
+  if (!entries.length) { el.innerHTML = ''; return; }
+  el.innerHTML = entries.map(txt => `<div class="news-entry">${txt}</div>`).join('');
 }
 
 function inferExitDir(exit, lastDir) {
@@ -1196,9 +1286,14 @@ function tryMovePlayer(dir) {
   }
 
   const def = DIRS[dir];
-  const nx = p.x + def.dx, ny = p.y + def.dy;
-  if (!inBounds(nx, ny)) return;
-  if (s.walls[p.y][p.x][dir]) return;
+  let nx = p.x + def.dx, ny = p.y + def.dy;
+  if (!inBounds(nx, ny)) {
+    const wrapped = wrapCoords(p.x, p.y, dir);
+    if (wrapped) { nx = wrapped.x; ny = wrapped.y; }
+    else return;
+  } else if (s.walls[p.y][p.x][dir]) {
+    return;
+  }
   performPlayerMove(nx, ny, dir);
 }
 
@@ -1318,6 +1413,7 @@ function handleLandOn(p) {
     s.mines = s.mines.filter(m => m.id !== mine.id);
     if (invincible) { showMessage(t('invincibleMine')); }
     else if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlockedMine')); renderInventory(); }
+    else if (consumeHeart()) { showMessage(t('heartSaved')); }
     else {
       s.gameOver = true;
       showMessage(t('diedMine'));
@@ -1331,6 +1427,7 @@ function handleLandOn(p) {
   if (s.tiles[p.y][p.x] === 'pit') {
     if (invincible) showMessage(t('invinciblePit'));
     else if (selectedIs('shield')) { consumeSelected(); showMessage(t('shieldBlockedPit')); renderInventory(); }
+    else if (consumeHeart()) { showMessage(t('heartSaved')); }
     else {
       s.gameOver = true;
       showMessage(t('diedPit'));
@@ -1349,6 +1446,12 @@ function handleLandOn(p) {
       s.player.inv.push(null);
       s.items.splice(itemIdx, 1);
       showMessage(t('slotGained'));
+    } else if (item.type === 'heart') {
+      if (!s.player.hasHeart) {
+        s.player.hasHeart = true;
+        s.items.splice(itemIdx, 1);
+        showMessage(t('heartGained'));
+      }
     } else {
       const slotIdx = emptySlotIndex();
       if (slotIdx === -1) {
@@ -1463,6 +1566,7 @@ function resolvePlayerEnemyCollision() {
       }
       if (invincible) { damageEnemy(e, 'invincible'); showMessage(t('invincibleKilled', enemyName(e.type))); return false; }
       if (selectedIs('shield')) { consumeSelected(); e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+      if (consumeHeart()) { e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('heartSaved')); return false; }
       s.gameOver = true;
       showMessage(t('killedByBoss'));
       render(); renderInventory(); updateHUD();
@@ -1482,6 +1586,7 @@ function resolvePlayerEnemyCollision() {
     }
     if (invincible) { damageEnemy(e, 'invincible'); showMessage(t('invincibleKilled', enemyName(e.type))); return false; }
     if (selectedIs('shield')) { consumeSelected(); e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('shieldBlocked')); renderInventory(); return false; }
+    if (consumeHeart()) { e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('heartSaved')); return false; }
     s.gameOver = true;
     showMessage(t('diedEnemy'));
     render(); renderInventory(); updateHUD();
@@ -1498,10 +1603,16 @@ function damageEnemyBoss(e, source) {
 
 function checkTeleport(entity) {
   const s = state;
-  if (s.teleports.length !== 2) return;
-  const [a, b] = s.teleports;
-  if (same(entity, a)) { entity.x = b.x; entity.y = b.y; }
-  else if (same(entity, b)) { entity.x = a.x; entity.y = a.y; }
+  if (s.teleports.length === 2) {
+    const [a, b] = s.teleports;
+    if (same(entity, a)) { entity.x = b.x; entity.y = b.y; return; }
+    if (same(entity, b)) { entity.x = a.x; entity.y = a.y; return; }
+  }
+  if (s.teleports2.length === 2) {
+    const [a, b] = s.teleports2;
+    if (same(entity, a)) { entity.x = b.x; entity.y = b.y; return; }
+    if (same(entity, b)) { entity.x = a.x; entity.y = a.y; return; }
+  }
 }
 
 function useItem() {
@@ -1570,6 +1681,11 @@ function enemyKillPlayer(msgKey, attacker) {
     renderInventory();
     return false;
   }
+  if (consumeHeart()) {
+    if (attacker) attacker.frozen = Math.max(attacker.frozen, 1);
+    showMessage(t('heartSaved'));
+    return false;
+  }
   s.gameOver = true;
   showMessage(t(msgKey));
   showRestart();
@@ -1592,14 +1708,22 @@ function enemyStepOnto(e) {
     s.mines = s.mines.filter(m => m.id !== mine.id);
     return damageEnemy(e, 'mine');
   }
-  // Pick up item (but enemies can't see/pickup keys or super-knives — they walk over)
+  // Pick up item (but enemies can't see/pickup keys, super-knives, or hearts except boss — they walk over)
   // Patrol enemies never pick up items at all
   const itemIdx = s.items.findIndex(it => same(it, e));
-  if (itemIdx !== -1 && !e.inv && e.type !== 'patrol') {
+  if (itemIdx !== -1 && e.type !== 'patrol') {
     const item = s.items[itemIdx];
     if (item.type === 'key' || item.type === 'superknife') {
       // Invisible to enemies — item stays
-    } else {
+    } else if (item.type === 'heart') {
+      // Only boss can see/pick up hearts
+      if (e.type === 'boss') {
+        e.hp += 1;
+        s.items.splice(itemIdx, 1);
+        showMessage(t('bossHeartGained'));
+      }
+      // Other enemies walk over — heart stays
+    } else if (!e.inv) {
       const usable = ['knife','tilde','mine','stealthmine','random','shield'];
       if (usable.includes(item.type)) {
         e.inv = item.type;
@@ -1679,10 +1803,14 @@ function enemyTurn() {
     let next = null;
     if (e.type === 'patrol') {
       const def = DIRS[e.dir];
-      const nx = e.x + def.dx, ny = e.y + def.dy;
-      // Patrol avoids walking into pits
+      let nx = e.x + def.dx, ny = e.y + def.dy;
+      let wrapped = null;
+      if (!inBounds(nx, ny)) {
+        wrapped = wrapCoords(e.x, e.y, e.dir);
+        if (wrapped) { nx = wrapped.x; ny = wrapped.y; }
+      }
       const isPit = inBounds(nx, ny) && s.tiles[ny][nx] === 'pit';
-      if (!inBounds(nx, ny) || s.walls[e.y][e.x][e.dir] || isPit) {
+      if ((!inBounds(nx, ny) && !wrapped) || (inBounds(nx, ny) && !wrapped && s.walls[e.y][e.x][e.dir]) || isPit) {
         e.dir = DIRS[e.dir].opp;
       } else {
         next = { x: nx, y: ny };
@@ -1960,12 +2088,23 @@ function render() {
     }
   }
 
-  // Teleports
+  // Teleports (blue pair)
   if (s.teleports.length === 2) {
     ctx.strokeStyle = '#5dade2';
     ctx.fillStyle = '#d6eaf8';
     ctx.lineWidth = 2;
     for (const tp of s.teleports) {
+      const cx = PAD + tp.x * CELL + CELL/2, cy = PAD + tp.y * CELL + CELL/2;
+      ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.32, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    }
+  }
+  // Second teleports (light orange pair)
+  if (s.teleports2.length === 2) {
+    ctx.strokeStyle = '#f39c12';
+    ctx.fillStyle = '#fff3cd';
+    ctx.lineWidth = 2;
+    for (const tp of s.teleports2) {
       const cx = PAD + tp.x * CELL + CELL/2, cy = PAD + tp.y * CELL + CELL/2;
       ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.32, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
@@ -2127,6 +2266,11 @@ function render() {
 
   // Player
   const pcx = PAD + s.player.x * CELL + CELL/2, pcy = PAD + s.player.y * CELL + CELL/2;
+  if (s.player.hasHeart) {
+    ctx.strokeStyle = '#e74c3c';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pcx, pcy, CELL * 0.44, 0, Math.PI * 2); ctx.stroke();
+  }
   if (invincible) {
     ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(pcx, pcy, CELL * 0.45, 0, Math.PI * 2); ctx.stroke();
@@ -2165,7 +2309,38 @@ function render() {
     }
   }
   ctx.lineWidth = 3;
-  ctx.strokeRect(PAD, PAD, GRID * CELL, GRID * CELL);
+  // Draw outer border with gaps for pacman wraps
+  const gapStart = Math.floor(GRID / 2) - 1;
+  const gapEnd = Math.floor(GRID / 2) + 1;
+  ctx.strokeStyle = '#000';
+  // Top edge
+  if (s.wrapVertical) {
+    ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD + gapStart * CELL, PAD); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD + gapEnd * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD + GRID * CELL, PAD); ctx.stroke();
+  }
+  // Bottom edge
+  if (s.wrapVertical) {
+    ctx.beginPath(); ctx.moveTo(PAD, PAD + GRID * CELL); ctx.lineTo(PAD + gapStart * CELL, PAD + GRID * CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD + gapEnd * CELL, PAD + GRID * CELL); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(PAD, PAD + GRID * CELL); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
+  }
+  // Left edge
+  if (s.wrapHorizontal) {
+    ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD, PAD + gapStart * CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD, PAD + gapEnd * CELL); ctx.lineTo(PAD, PAD + GRID * CELL); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD, PAD + GRID * CELL); ctx.stroke();
+  }
+  // Right edge
+  if (s.wrapHorizontal) {
+    ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD + gapStart * CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD + gapEnd * CELL); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
+  }
 
   // Fog
   if (s.fogOfWar) {
@@ -2219,7 +2394,7 @@ function updateHUD() {
 }
 
 const eventLog = [];
-const EVENT_LOG_MAX = 4;
+const EVENT_LOG_MAX = 5;
 
 function logEvent(text) {
   if (!text) return;
