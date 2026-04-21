@@ -2498,18 +2498,28 @@ function render() {
     ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
   }
 
-  // Fog — clear inside radius, fully opaque outside (with smooth edge)
+  // Fog — draw black overlay everywhere EXCEPT a clear circle around the player
   if (s.fogOfWar) {
     const fogR = FOG_RADIUS_CELLS * CELL;
-    // First fill entire field with solid black
     ctx.save();
+
+    // Build clip path: full field rect with a circular hole at player position (even-odd fill rule)
+    ctx.beginPath();
+    ctx.rect(PAD, PAD, GRID * CELL, GRID * CELL);
+    ctx.arc(pcx, pcy, fogR, 0, Math.PI * 2);
+    ctx.clip('evenodd');
+
+    // Fill the clipped area with solid black
     ctx.fillStyle = '#000';
     ctx.fillRect(PAD, PAD, GRID * CELL, GRID * CELL);
-    // Then punch a radial gradient "hole" that fades from transparent at center to black at edge of radius
-    const grad = ctx.createRadialGradient(pcx, pcy, fogR * 0.7, pcx, pcy, fogR);
-    grad.addColorStop(0, 'rgba(0,0,0,1)');     // keep center visible (destination-out with opaque)
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalCompositeOperation = 'destination-out';
+
+    ctx.restore();
+
+    // Soft fade at the border between visible circle and darkness
+    ctx.save();
+    const grad = ctx.createRadialGradient(pcx, pcy, fogR * 0.85, pcx, pcy, fogR);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.9)');
     ctx.fillStyle = grad;
     ctx.fillRect(PAD, PAD, GRID * CELL, GRID * CELL);
     ctx.restore();
