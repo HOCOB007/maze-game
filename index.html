@@ -31,7 +31,7 @@
     min-height: 95px;
   }
   #eventLog {
-    flex: 1 1 50%; width: 50%;
+    flex: 0 0 35%; width: 35%;
     max-height: 95px; overflow-y: auto;
     padding: 4px 8px;
     background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px;
@@ -41,7 +41,7 @@
   #eventLog .log-entry { padding: 1px 0; border-bottom: 1px dashed #eee; }
   #eventLog .log-entry:last-child { border-bottom: none; font-weight: 600; color: #111; }
   #newsBlock {
-    flex: 1 1 50%; width: 50%;
+    flex: 1 1 65%; width: 65%;
     max-height: 95px; overflow-y: auto;
     padding: 4px 8px;
     background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px;
@@ -470,6 +470,9 @@ const I18N = {
     godmodeOn: '🛡 Тестовий режим увімкнено',
     godmodeOff: 'Тестовий режим вимкнено',
     roundSkipped: '⏭ Раунд пропущено (тест)',
+    heartGained: '❤️ Серце підібрано — дод. життя',
+    heartSaved: '❤️ Серце врятувало від смерті',
+    bossHeartGained: '❤️ Бос схопив серце! +1 HP',
     tiltHttpsRequired: '⚠ Нахил працює тільки на HTTPS або localhost',
     tiltPermDenied: 'Доступ до акселерометра відхилено',
     tiltPrompt: 'Нахили пристрій для руху',
@@ -1849,6 +1852,34 @@ function enemyTurn() {
       }
     }
 
+    // If no path found — enemy must still move (pick any valid neighbor)
+    if (!next) {
+      const options = [];
+      for (const d of DIR_KEYS) {
+        const def = DIRS[d];
+        let nx = e.x + def.dx, ny = e.y + def.dy;
+        // Check walls (ghost ignores)
+        const canPass = e.type === 'ghost' || !s.walls[e.y][e.x][d];
+        if (!canPass) continue;
+        if (!inBounds(nx, ny)) {
+          const wrapped = wrapCoords(e.x, e.y, d);
+          if (!wrapped) continue;
+          nx = wrapped.x; ny = wrapped.y;
+        }
+        // Avoid pits and visible mines for non-ghost (but allow if nothing else)
+        if (e.type !== 'ghost') {
+          if (s.tiles[ny][nx] === 'pit') continue;
+          if (s.mines.some(m => m.x === nx && m.y === ny && !m.stealth)) continue;
+        }
+        // Avoid stepping onto another enemy
+        if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) continue;
+        options.push({ x: nx, y: ny });
+      }
+      if (options.length) {
+        next = options[Math.floor(Math.random() * options.length)];
+      }
+    }
+
     if (!next) continue;
 
     if (e.onMineId !== null) e.onMineId = null;
@@ -2309,13 +2340,44 @@ function render() {
     }
   }
   ctx.lineWidth = 3;
-  // Draw outer border with gaps for pacman wraps
+  // Outer border with wavy segments where pacman wraps are active
   const gapStart = Math.floor(GRID / 2) - 1;
   const gapEnd = Math.floor(GRID / 2) + 1;
   ctx.strokeStyle = '#000';
+
+  const drawWavyH = (x1, x2, y) => {
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#2874e7';
+    ctx.beginPath();
+    const amp = 3, period = 8;
+    ctx.moveTo(x1, y);
+    for (let x = x1; x <= x2; x += 1) {
+      const yy = y + Math.sin((x - x1) / period * Math.PI * 2) * amp;
+      ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  };
+  const drawWavyV = (y1, y2, x) => {
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#2874e7';
+    ctx.beginPath();
+    const amp = 3, period = 8;
+    ctx.moveTo(x, y1);
+    for (let y = y1; y <= y2; y += 1) {
+      const xx = x + Math.sin((y - y1) / period * Math.PI * 2) * amp;
+      ctx.lineTo(xx, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  };
+
   // Top edge
   if (s.wrapVertical) {
     ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD + gapStart * CELL, PAD); ctx.stroke();
+    drawWavyH(PAD + gapStart * CELL, PAD + gapEnd * CELL, PAD);
     ctx.beginPath(); ctx.moveTo(PAD + gapEnd * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD); ctx.stroke();
   } else {
     ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD + GRID * CELL, PAD); ctx.stroke();
@@ -2323,6 +2385,7 @@ function render() {
   // Bottom edge
   if (s.wrapVertical) {
     ctx.beginPath(); ctx.moveTo(PAD, PAD + GRID * CELL); ctx.lineTo(PAD + gapStart * CELL, PAD + GRID * CELL); ctx.stroke();
+    drawWavyH(PAD + gapStart * CELL, PAD + gapEnd * CELL, PAD + GRID * CELL);
     ctx.beginPath(); ctx.moveTo(PAD + gapEnd * CELL, PAD + GRID * CELL); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
   } else {
     ctx.beginPath(); ctx.moveTo(PAD, PAD + GRID * CELL); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
@@ -2330,6 +2393,7 @@ function render() {
   // Left edge
   if (s.wrapHorizontal) {
     ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD, PAD + gapStart * CELL); ctx.stroke();
+    drawWavyV(PAD + gapStart * CELL, PAD + gapEnd * CELL, PAD);
     ctx.beginPath(); ctx.moveTo(PAD, PAD + gapEnd * CELL); ctx.lineTo(PAD, PAD + GRID * CELL); ctx.stroke();
   } else {
     ctx.beginPath(); ctx.moveTo(PAD, PAD); ctx.lineTo(PAD, PAD + GRID * CELL); ctx.stroke();
@@ -2337,6 +2401,7 @@ function render() {
   // Right edge
   if (s.wrapHorizontal) {
     ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD + gapStart * CELL); ctx.stroke();
+    drawWavyV(PAD + gapStart * CELL, PAD + gapEnd * CELL, PAD + GRID * CELL);
     ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD + gapEnd * CELL); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
   } else {
     ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
@@ -2485,25 +2550,19 @@ function bindKeyboard() {
 
 function bindTouch() {
   let touchStartX = 0, touchStartY = 0;
-  let touchStartTarget = null;
   let lastTapTime = 0;
 
-  const isInteractive = (el) => {
-    if (!el || !el.closest) return false;
-    return !!(el.closest('button') || el.closest('.slot') || el.closest('#modal') || el.tagName === 'BUTTON' || el.tagName === 'INPUT');
-  };
+  const canvas = document.getElementById('canvas');
 
-  document.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) { touchStartTarget = null; return; }
-    touchStartTarget = e.target;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
   }, { passive: true });
 
-  document.addEventListener('touchend', (e) => {
+  canvas.addEventListener('touchend', (e) => {
     if (!state || state.gameOver || state.transitioning) return;
     if (document.getElementById('modal').classList.contains('open')) return;
-    if (isInteractive(touchStartTarget)) { touchStartTarget = null; return; }
     const touch = e.changedTouches[0];
     if (!touch) return;
     const dx = touch.clientX - touchStartX, dy = touch.clientY - touchStartY;
