@@ -32,21 +32,27 @@
   }
   #eventLog {
     flex: 0 0 35%; width: 35%;
-    max-height: 95px; overflow-y: auto;
+    max-height: 95px; overflow-y: scroll;
     padding: 4px 8px;
     background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px;
     font-size: 11px; line-height: 1.35; color: #333;
     display: flex; flex-direction: column; gap: 1px;
+    cursor: pointer;
   }
+  #eventLog.font-m { font-size: 13px; }
+  #eventLog.font-l { font-size: 15px; }
   #eventLog .log-entry { padding: 1px 0; border-bottom: 1px dashed #eee; }
   #eventLog .log-entry:last-child { border-bottom: none; font-weight: 600; color: #111; }
   #newsBlock {
     flex: 1 1 65%; width: 65%;
-    max-height: 95px; overflow-y: auto;
+    max-height: 95px; overflow-y: scroll;
     padding: 4px 8px;
     background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px;
     font-size: 11px; line-height: 1.35; color: #1b5e20;
+    cursor: pointer;
   }
+  #newsBlock.font-m { font-size: 13px; }
+  #newsBlock.font-l { font-size: 15px; }
   #newsBlock .news-entry { padding: 2px 0; border-bottom: 1px dashed #c8e6c9; }
   #newsBlock .news-entry:last-child { border-bottom: none; }
   #newsBlock:empty { display: none; }
@@ -218,6 +224,8 @@ const I18N = {
     diedPit: '🕳 You fell into a pit!',
     diedEnemy: '💀 Enemy caught you!',
     diedSniper: '🎯 Sniper shot you!',
+    diedGhost: '👻 The ghost passed through you!',
+    ghostImmune: '👻 The ghost is immune to that',
     enemyToPit: 'Enemy fell in pit! 🕳',
     enemyToMine: '💥 Enemy died on a mine!',
     enemyBrokeWall: '⌁ Enemy broke a wall!',
@@ -340,6 +348,8 @@ const I18N = {
     diedPit: '🕳 Ты упал в яму!',
     diedEnemy: '💀 Враг тебя поймал!',
     diedSniper: '🎯 Снайпер тебя застрелил!',
+    diedGhost: '👻 Призрак прошёл сквозь тебя!',
+    ghostImmune: '👻 Призрак неуязвим',
     enemyToPit: 'Враг упал в яму! 🕳',
     enemyToMine: '💥 Враг подорвался на мине!',
     enemyBrokeWall: '⌁ Враг сломал стену!',
@@ -462,6 +472,8 @@ const I18N = {
     diedPit: '🕳 Ти впав у яму!',
     diedEnemy: '💀 Ворог спіймав тебе!',
     diedSniper: '🎯 Снайпер тебе застрелив!',
+    diedGhost: '👻 Привид пройшов крізь тебе!',
+    ghostImmune: '👻 Привид невразливий',
     enemyToPit: 'Ворог упав у яму! 🕳',
     enemyToMine: '💥 Ворог підірвався на міні!',
     enemyBrokeWall: '⌁ Ворог зламав стіну!',
@@ -848,7 +860,18 @@ function emptySlotIndex() {
 function selectedItem() { return state.player.inv[state.player.selectedSlot]; }
 function selectedIs(type) { return selectedItem() === type; }
 function findItemSlot(type) { return state.player.inv.findIndex(s => s === type); }
-function consumeSelected() { state.player.inv[state.player.selectedSlot] = null; }
+function consumeSelected() {
+  state.player.inv[state.player.selectedSlot] = null;
+  autoPickWeapon();
+}
+function autoPickWeapon() {
+  // If selected slot is empty, try to select knife first, then shield
+  const inv = state.player.inv;
+  if (inv[state.player.selectedSlot]) return;
+  let idx = inv.findIndex(x => x === 'knife');
+  if (idx === -1) idx = inv.findIndex(x => x === 'shield');
+  if (idx !== -1) state.player.selectedSlot = idx;
+}
 function consumeHeart() {
   if (state.player.hasHeart) { state.player.hasHeart = false; return true; }
   return false;
@@ -1015,7 +1038,7 @@ function setupRound(round) {
   s.player.x = start.x; s.player.y = start.y;
   s.player.onMineId = null;
   s.player.lastMoveDir = null;
-  s.player.hasHeart = false;
+  // hasHeart persists between rounds
 
   const exits = getExitCandidates(start);
   s.exit = {...exits[randInt(exits.length)]};
@@ -1060,11 +1083,12 @@ function setupRound(round) {
   }
   for (let i = 0; i < spec.patrol; i++) {
     const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
-    if (pos) { s.enemies.push({ type: 'patrol', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, dir: DIR_KEYS[randInt(4)], skipNextTurn: false }); s.seenEnemies.add('patrol'); }
-  }
-  for (let i = 0; i < spec.sniper; i++) {
-    const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
-    if (pos) { s.enemies.push({ type: 'sniper', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, skipNextTurn: false }); s.seenEnemies.add('sniper'); }
+    if (pos) {
+      const horizontal = Math.random() < 0.5;
+      const dir = horizontal ? (Math.random() < 0.5 ? 'e' : 'w') : (Math.random() < 0.5 ? 'n' : 's');
+      s.enemies.push({ type: 'patrol', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, dir: dir, axis: horizontal ? 'h' : 'v', startX: pos.x, startY: pos.y, skipNextTurn: false });
+      s.seenEnemies.add('patrol');
+    }
   }
   for (let i = 0; i < spec.ghost; i++) {
     const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
@@ -1095,6 +1119,19 @@ function setupRound(round) {
       if (b) s.teleports2.push(b); else s.teleports2.pop();
     }
   }
+  // Snipers — spawn after teleports, never on same row/column as any teleport cell
+  const allTeleports = [...s.teleports, ...s.teleports2];
+  for (let i = 0; i < spec.sniper; i++) {
+    const pos = randomEmptyCell(c => {
+      if (manhattan(c, s.player) < 5) return false;
+      // Not on same row or column as any teleport cell
+      for (const t of allTeleports) {
+        if (c.x === t.x || c.y === t.y) return false;
+      }
+      return true;
+    });
+    if (pos) { s.enemies.push({ type: 'sniper', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, skipNextTurn: false }); s.seenEnemies.add('sniper'); }
+  }
   for (let i = 0; i < spec.tilde; i++) addItem('tilde');
   for (let i = 0; i < spec.clock; i++) addItem('clock');
   for (let i = 0; i < spec.mine; i++) addItem('mine');
@@ -1112,7 +1149,7 @@ function setupRound(round) {
   }
   // Heart spawn: always on boss rounds, 20% chance otherwise
   const hasBossThisRound = spec.boss > 0;
-  const heartRoll = hasBossThisRound || Math.random() < 0.20;
+  const heartRoll = !s.player.hasHeart && (hasBossThisRound || Math.random() < 0.20);
   if (heartRoll && round >= 3) {
     const pos = randomEmptyCell(c => manhattan(c, s.player) >= 3);
     if (pos) { s.items.push({ type: 'heart', x: pos.x, y: pos.y }); s.seenItems.add('heart'); }
@@ -1475,6 +1512,11 @@ function handleLandOn(p) {
 // =================== ENEMY DAMAGE ===================
 function damageEnemy(e, source) {
   const s = state;
+  // Ghost is immune to all item/weapon damage
+  if (e.type === 'ghost') {
+    showMessage(t('ghostImmune'));
+    return false;
+  }
   // Shield absorbs one hit; enemy also skips its next turn so player can escape
   if (e.inv === 'shield') {
     e.inv = null;
@@ -1563,7 +1605,12 @@ function resolvePlayerEnemyCollision() {
     if (e.type === 'boss') {
       if (selectedIs('superknife')) {
         consumeSelected();
-        damageEnemy(e, 'superknife_boss');
+        const killed = damageEnemy(e, 'superknife_boss');
+        if (!killed) {
+          // Boss survived — push him off the player's cell and ensure he's frozen
+          pushEnemyAwayFrom(e, null);
+          e.frozen = Math.max(e.frozen, 3);
+        }
         renderInventory();
         return false;
       }
@@ -1572,6 +1619,17 @@ function resolvePlayerEnemyCollision() {
       if (consumeHeart()) { e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('heartSaved')); return false; }
       s.gameOver = true;
       showMessage(t('killedByBoss'));
+      render(); renderInventory(); updateHUD();
+      showRestart();
+      return true;
+    }
+
+    // Ghost: knife/superknife/shield don't help, only heart or invincibility
+    if (e.type === 'ghost') {
+      if (invincible) { showMessage(t('invincibleKilled', enemyName(e.type))); return false; }
+      if (consumeHeart()) { e.frozen = Math.max(e.frozen, 1); pushEnemyAwayFrom(e, null); showMessage(t('heartSaved')); return false; }
+      s.gameOver = true;
+      showMessage(t('diedGhost'));
       render(); renderInventory(); updateHUD();
       showRestart();
       return true;
@@ -1724,6 +1782,12 @@ function enemyStepOnto(e) {
         e.hp += 1;
         s.items.splice(itemIdx, 1);
         showMessage(t('bossHeartGained'));
+        // Spawn an extra super-knife so player can still defeat the boss
+        const extraPos = randomEmptyCell(c => manhattan(c, s.player) >= 2);
+        if (extraPos) {
+          s.items.push({ type: 'superknife', x: extraPos.x, y: extraPos.y });
+          s.seenItems.add('superknife');
+        }
       }
       // Other enemies walk over — heart stays
     } else if (!e.inv) {
@@ -1747,12 +1811,30 @@ function enemyCollidesWithPlayer(e, fromPos) {
   if (e.type === 'boss') {
     if (selectedIs('superknife')) {
       consumeSelected();
-      damageEnemy(e, 'superknife_boss');
+      const killed = damageEnemy(e, 'superknife_boss');
+      if (!killed) {
+        pushEnemyAwayFrom(e, fromPos);
+        e.frozen = Math.max(e.frozen, 3);
+      }
       renderInventory();
       return true;
     }
-    const killed = enemyKillPlayer('killedByBoss', e);
-    if (!killed) pushEnemyAwayFrom(e, fromPos);
+    const bossKilled = enemyKillPlayer('killedByBoss', e);
+    if (!bossKilled) pushEnemyAwayFrom(e, fromPos);
+    return true;
+  }
+
+  if (e.type === 'ghost') {
+    if (invincible) { return true; }
+    if (consumeHeart()) {
+      e.frozen = Math.max(e.frozen, 1);
+      pushEnemyAwayFrom(e, fromPos);
+      showMessage(t('heartSaved'));
+      return true;
+    }
+    s.gameOver = true;
+    showMessage(t('diedGhost'));
+    showRestart();
     return true;
   }
 
@@ -1805,18 +1887,27 @@ function enemyTurn() {
 
     let next = null;
     if (e.type === 'patrol') {
-      const def = DIRS[e.dir];
-      let nx = e.x + def.dx, ny = e.y + def.dy;
-      let wrapped = null;
-      if (!inBounds(nx, ny)) {
-        wrapped = wrapCoords(e.x, e.y, e.dir);
-        if (wrapped) { nx = wrapped.x; ny = wrapped.y; }
-      }
-      const isPit = inBounds(nx, ny) && s.tiles[ny][nx] === 'pit';
-      if ((!inBounds(nx, ny) && !wrapped) || (inBounds(nx, ny) && !wrapped && s.walls[e.y][e.x][e.dir]) || isPit) {
+      const tryStep = (dir) => {
+        const def = DIRS[dir];
+        let nx = e.x + def.dx, ny = e.y + def.dy;
+        if (!inBounds(nx, ny)) return null; // Patrol doesn't use wrap
+        if (s.walls[e.y][e.x][dir]) return null;
+        if (s.tiles[ny][nx] === 'pit') return null;
+        if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) return null;
+        // Radius check — patrol stays within 5 cells of start along its axis
+        if (e.axis === 'h' && Math.abs(nx - e.startX) > 5) return null;
+        if (e.axis === 'v' && Math.abs(ny - e.startY) > 5) return null;
+        return { x: nx, y: ny };
+      };
+      // Ensure dir matches axis (in case of weird state)
+      if (e.axis === 'h' && (e.dir === 'n' || e.dir === 's')) e.dir = Math.random() < 0.5 ? 'e' : 'w';
+      if (e.axis === 'v' && (e.dir === 'e' || e.dir === 'w')) e.dir = Math.random() < 0.5 ? 'n' : 's';
+
+      next = tryStep(e.dir);
+      if (!next) {
+        // Try the opposite direction along same axis
         e.dir = DIRS[e.dir].opp;
-      } else {
-        next = { x: nx, y: ny };
+        next = tryStep(e.dir);
       }
     } else if (e.type === 'ghost') {
       const blockedByOthers = s.enemies.filter(x => x !== e).map(x => ({x: x.x, y: x.y}));
@@ -2407,14 +2498,21 @@ function render() {
     ctx.beginPath(); ctx.moveTo(PAD + GRID * CELL, PAD); ctx.lineTo(PAD + GRID * CELL, PAD + GRID * CELL); ctx.stroke();
   }
 
-  // Fog
+  // Fog — clear inside radius, fully opaque outside (with smooth edge)
   if (s.fogOfWar) {
     const fogR = FOG_RADIUS_CELLS * CELL;
+    // First fill entire field with solid black
+    ctx.save();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(PAD, PAD, GRID * CELL, GRID * CELL);
+    // Then punch a radial gradient "hole" that fades from transparent at center to black at edge of radius
     const grad = ctx.createRadialGradient(pcx, pcy, fogR * 0.7, pcx, pcy, fogR);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.88)');
+    grad.addColorStop(0, 'rgba(0,0,0,1)');     // keep center visible (destination-out with opaque)
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = grad;
     ctx.fillRect(PAD, PAD, GRID * CELL, GRID * CELL);
+    ctx.restore();
   }
 
   const keysHeld = s.player.inv.filter(x => x === 'key').length;
@@ -2732,13 +2830,23 @@ function init() {
   document.getElementById('useBtn').addEventListener('click', useItem);
   document.getElementById('infoBtn').addEventListener('click', openInfo);
   document.getElementById('modalClose').addEventListener('click', () => {
-    // Don't allow close while shop or swap is active
-    if (pendingPickup || (state && state.transitioning)) return;
+    // Swap modal (mandatory pickup) — block close
+    if (pendingPickup) return;
+    // Shop is active when modal is open during transitioning and pendingPickup is null
+    if (state && state.transitioning && document.getElementById('modal').classList.contains('open')) {
+      closeShop();
+      return;
+    }
     document.getElementById('modal').classList.remove('open');
   });
   document.getElementById('modal').addEventListener('click', (e) => {
     if (e.target.id !== 'modal') return;
-    if (pendingPickup || (state && state.transitioning)) return;
+    if (pendingPickup) return;
+    // Clicking background while shop is open — also behave like skip
+    if (state && state.transitioning && document.getElementById('modal').classList.contains('open')) {
+      closeShop();
+      return;
+    }
     document.getElementById('modal').classList.remove('open');
   });
   document.getElementById('gameTitle').addEventListener('click', (e) => {
@@ -2755,6 +2863,31 @@ function init() {
   bindKeyboard();
   bindTouch();
   bindTilt();
+
+  // Double-click on log/news cycles font size: default -> medium -> large -> default
+  const cycleFontSize = (el) => {
+    if (el.classList.contains('font-l')) {
+      el.classList.remove('font-l');
+    } else if (el.classList.contains('font-m')) {
+      el.classList.remove('font-m');
+      el.classList.add('font-l');
+    } else {
+      el.classList.add('font-m');
+    }
+  };
+  for (const id of ['eventLog', 'newsBlock']) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('dblclick', () => cycleFontSize(el));
+      // Touch double-tap support
+      let lastTap = 0;
+      el.addEventListener('touchend', (ev) => {
+        const now = Date.now();
+        if (now - lastTap < 400) { cycleFontSize(el); ev.preventDefault(); lastTap = 0; }
+        else lastTap = now;
+      });
+    }
+  }
 
   newGame();
 }
