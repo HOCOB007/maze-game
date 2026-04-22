@@ -1790,8 +1790,10 @@ function enemyStepOnto(e) {
         }
       }
       // Other enemies walk over — heart stays
+    } else if (item.type === 'stealthmine') {
+      // Invisible to enemies — walk over, item stays for the player
     } else if (!e.inv) {
-      const usable = ['knife','tilde','mine','stealthmine','random','shield'];
+      const usable = ['knife','tilde','mine','random','shield'];
       if (usable.includes(item.type)) {
         e.inv = item.type;
         s.items.splice(itemIdx, 1);
@@ -1895,8 +1897,8 @@ function enemyTurn() {
         if (s.tiles[ny][nx] === 'pit') return null;
         if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) return null;
         // Radius check — patrol stays within 5 cells of start along its axis
-        if (e.axis === 'h' && Math.abs(nx - e.startX) > 5) return null;
-        if (e.axis === 'v' && Math.abs(ny - e.startY) > 5) return null;
+        if (e.axis === 'h' && Math.abs(nx - e.startX) > 3) return null;
+        if (e.axis === 'v' && Math.abs(ny - e.startY) > 3) return null;
         return { x: nx, y: ny };
       };
       // Ensure dir matches axis (in case of weird state)
@@ -2334,7 +2336,7 @@ function render() {
         ctx.lineCap = 'round';
         const armLen = CELL * 0.22;
         const headSize = CELL * 0.09;
-        const vertical = (e.dir === 'n' || e.dir === 's');
+        const vertical = (e.axis === 'v');
         if (vertical) {
           ctx.beginPath();
           ctx.moveTo(cx, cy - armLen);
