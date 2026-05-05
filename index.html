@@ -116,6 +116,68 @@
   .swap-new { background: #fff3cd; border-color: #ffc107; }
   .swap-section-label { font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 2px; font-weight: 600; }
   @keyframes flash { 0% { background: #fff9c4; } 100% { background: #fff; } }
+
+  /* ===== LEADERBOARD ===== */
+  .lb-top3 {
+    min-height: 36px; font-size: 11px; color: #333;
+    display: flex; flex-direction: column; gap: 2px;
+    margin-top: 6px; padding: 4px 8px;
+    background: rgba(255,255,255,0.55); border-radius: 8px;
+    line-height: 1.4;
+  }
+  .lb-top3-loading { color: rgba(255,255,255,0.6); font-size: 11px; }
+  .lb-top3 .lb-row { display: flex; gap: 5px; align-items: baseline; }
+  .lb-top3 .lb-name { font-weight: 700; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-top3 .lb-pts { color: #555; }
+  .lb-table { width:100%; border-collapse:collapse; font-size:13px; margin-top: 2px; }
+  .lb-table th { font-weight:700; border-bottom:2px solid #eee; padding:4px 3px; text-align:left; }
+  .lb-table td { border-bottom:1px solid #f0f0f0; padding:5px 3px; }
+  .lb-table tr.lb-me td { background: #fffde7; }
+  .lb-continue {
+    margin-top:14px; width:100%; padding:11px;
+    background:#27ae60; color:#fff; border:none;
+    border-radius:8px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .lb-empty { color:#999; font-size:13px; padding:12px 0; }
+
+  /* ===== START SCREEN ===== */
+  #startScreen {
+    position: fixed; inset: 0;
+    background: #f5f5f7;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 24px; z-index: 200; padding: 32px 20px;
+  }
+  #startScreen.hidden { display: none; }
+  #startScreen h1 { font-size: 28px; margin: 0; font-weight: 900; text-align: center; }
+  #startScreen p { font-size: 14px; color: #555; margin: 0; text-align: center; max-width: 320px; line-height: 1.5; }
+  .start-btn {
+    width: 100%; max-width: 320px;
+    padding: 18px 20px;
+    border: none; border-radius: 14px;
+    font-size: 17px; font-weight: 800;
+    cursor: pointer; touch-action: manipulation;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    transition: transform .12s;
+  }
+  .start-btn:active { transform: scale(0.97); }
+  .start-btn-sub { font-size: 12px; font-weight: 500; opacity: 0.75; }
+  #btnRandom { background: #2874e7; color: #fff; }
+  #btnDaily  { background: #27ae60; color: #fff; }
+  #startLoading { font-size: 13px; color: #888; min-height: 20px; text-align: center; }
+  
+  /* ===== NICKNAME MODAL ===== */
+  #nicknameDropdown > div {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+  }
+  #nicknameDropdown > div:last-child { border-bottom: none; }
+  #nicknameDropdown > div:hover { background: #f0f7ff; }
+  #nicknameDropdown > div.selected { background: #e8f2ff; font-weight: 600; }
+
 </style>
 </head>
 <body>
@@ -125,6 +187,7 @@
     <div><span id="lblMoves">Moves</span>: <span id="moves">0</span></div>
     <div><span id="lblRound">Round</span>: <span id="round">1</span></div>
     <div><span id="lblKilled">Killed</span>: <span id="killed">0</span></div>
+    <div><span id="lblScore">Score</span>: <span id="score">0</span></div>
   </div>
   <div id="controls">
     <button id="ctrlBtn"></button>
@@ -149,6 +212,42 @@
   <button id="restartBtn" style="display:none"></button>
 </div>
 
+<div id="startScreen">
+  <h1 id="startTitle">Labyrinth</h1>
+  <button class="start-btn" id="btnRandom">
+    <span id="btnRandomLabel">🎲 Full Random</span>
+    <span class="start-btn-sub" id="btnRandomSub">New seed every game</span>
+  </button>
+  <div class="lb-top3" id="lbRandom"><span class="lb-top3-loading">…</span></div>
+  <button class="start-btn" id="btnDaily">
+    <span id="btnDailyLabel">📅 Daily Seed</span>
+    <span class="start-btn-sub" id="btnDailySub">Same maze for everyone today</span>
+  </button>
+  <div class="lb-top3" id="lbDaily"><span class="lb-top3-loading">…</span></div>
+  <div id="startLoading"></div>
+</div>
+
+<div id="nicknameModal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 250;">
+  <div style="background: #fff; max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 10px; padding: 16px 18px; position: relative;">
+    <h2 id="nicknameModalTitle" style="margin: 0 0 16px; font-size: 18px;"></h2>
+    
+    <div style="margin-bottom: 16px;">
+      <input id="nicknameInput" 
+             type="text" 
+             style="width: 100%; padding: 10px 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; margin-bottom: 8px;"
+             autocomplete="off">
+      <button id="nicknameStartBtn" 
+              style="width: 100%; padding: 10px; background: #2874e7; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+      </button>
+    </div>
+    
+    <div id="nicknameHistoryLabel" style="font-size: 12px; color: #888; margin-bottom: 8px; font-weight: 600;"></div>
+    <div id="nicknameDropdown" style="border: 1px solid #ddd; border-radius: 6px; max-height: 200px; overflow-y: auto;">
+      <div id="nicknameHistoryEmpty" style="padding: 12px; text-align: center; color: #999; font-size: 13px;"></div>
+    </div>
+  </div>
+</div>
+
 <div id="modal">
   <div id="modalBox">
     <button id="modalClose">×</button>
@@ -163,7 +262,7 @@
 // =================== I18N ===================
 const I18N = {
   en: {
-    title: 'Labyrinth of Traps', moves: 'Moves', round: 'Round', killed: 'Killed',
+    title: 'Labyrinth of Traps', moves: 'Moves', round: 'Round', killed: 'Killed', score: 'Score',
     invLabel: 'Inventory (1–9 to select, click works too)',
     invLabelAmulet: (n, th) => `Inventory · 🔮 ×${n} → regen every ${th} steps`,
     use: 'Use ⏎', info: '📖 Info', godOn: '🛡 Godmode: ON', godOff: '🛡 Godmode: OFF',
@@ -284,10 +383,26 @@ const I18N = {
     hint_conveyor: '➡️ Conveyor — pushes you one extra cell after move',
     hint_lock: '🔒 Lock — exit is locked until you get the key',
     hint_fog: '🌫 Fog of war — only 5 cells around you are visible',
-    hint_wrap: '🌀 Wrap passage — step through the center gap in a wall, appear on the opposite edge'
+    hint_wrap: '🌀 Wrap passage — step through the center gap in a wall, appear on the opposite edge',
+    startRandomBtn: '🎲 Full Random',
+    startRandomSub: 'New seed every game',
+    startDailyBtn: '📅 Daily Seed',
+    startDailySub: 'Same maze for everyone today',
+    startFetching: 'Fetching date…',
+    nicknameTitle: 'Enter your nickname',
+    nicknamePlaceholder: 'Your nickname',
+    nicknameHistory: 'Previous nicknames',
+    nicknameHistoryEmpty: 'No saved nicknames yet',
+    nicknameStart: 'Start',
+    lbTitle: '🏆 Leaderboard',
+    lbEmpty: 'No entries yet.',
+    lbContinue: 'Continue →',
+    lbColRank: '#', lbColName: 'Player', lbColRound: 'Rnd', lbColScore: 'Score', lbColDate: 'Date',
+    lbTodayEmpty: 'Be first today!',
+    lbLoading: '…',
   },
   ru: {
-    title: 'Лабиринт с ловушками', moves: 'Шагов', round: 'Раунд', killed: 'Убито',
+    title: 'Лабиринт с ловушками', moves: 'Шагов', round: 'Раунд', killed: 'Убито', score: 'Очки',
     invLabel: 'Инвентарь (1–9 — выбор, клик тоже)',
     invLabelAmulet: (n, th) => `Инвентарь · 🔮 ×${n} → регенерация каждые ${th} ходов`,
     use: 'Использовать ⏎', info: '📖 Справка', godOn: '🛡 Неуязвимость: ON', godOff: '🛡 Неуязвимость: OFF',
@@ -408,10 +523,26 @@ const I18N = {
     hint_conveyor: '➡️ Конвейер — после хода тянет ещё на 1 клетку в свою сторону',
     hint_lock: '🔒 Замок — выход заблокирован до получения ключа',
     hint_fog: '🌫 Туман войны — видно только 5 клеток вокруг',
-    hint_wrap: '🌀 Сквозной проход — в центре грани нет стенки, пройдёшь сквозь и окажешься на противоположной грани'
+    hint_wrap: '🌀 Сквозной проход — в центре грани нет стенки, пройдёшь сквозь и окажешься на противоположной грани',
+    startRandomBtn: '🎲 Полный рандом',
+    startRandomSub: 'Новый сид каждую игру',
+    startDailyBtn: '📅 Ежедневный сид',
+    startDailySub: 'Один лабиринт для всех сегодня',
+    startFetching: 'Определяю дату…',
+    nicknameTitle: 'Введи свой никнейм',
+    nicknamePlaceholder: 'Твой никнейм',
+    nicknameHistory: 'Использованные ранее',
+    nicknameHistoryEmpty: 'Нет сохранённых никнеймов',
+    nicknameStart: 'Начать',
+    lbTitle: '🏆 Таблица рекордов',
+    lbEmpty: 'Записей пока нет.',
+    lbContinue: 'Продолжить →',
+    lbColRank: '#', lbColName: 'Игрок', lbColRound: 'Ур.', lbColScore: 'Очки', lbColDate: 'Дата',
+    lbTodayEmpty: 'Будь первым сегодня!',
+    lbLoading: '…',
   },
   uk: {
-    title: 'Лабіринт із пастками', moves: 'Кроків', round: 'Раунд', killed: 'Вбито',
+    title: 'Лабіринт із пастками', moves: 'Кроків', round: 'Раунд', killed: 'Вбито', score: 'Очки',
     invLabel: 'Інвентар (1–9 — вибір, клік теж)',
     invLabelAmulet: (n, th) => `Інвентар · 🔮 ×${n} → регенерація кожні ${th} ходів`,
     use: 'Використати ⏎', info: '📖 Довідка', godOn: '🛡 Невразливість: ON', godOff: '🛡 Невразливість: OFF',
@@ -532,7 +663,23 @@ const I18N = {
     hint_conveyor: "➡️ Конвеєр — після ходу тягне на 1 клітину в свою сторону",
     hint_lock: '🔒 Замок — вихід заблоковано до отримання ключа',
     hint_fog: '🌫 Туман війни — видно тільки 5 клітин навколо',
-    hint_wrap: '🌀 Наскрізний прохід — в центрі грані немає стіни, пройдеш і опинишся на протилежній грані'
+    hint_wrap: '🌀 Наскрізний прохід — в центрі грані немає стіни, пройдеш і опинишся на протилежній грані',
+    startRandomBtn: '🎲 Повний рандом',
+    startRandomSub: 'Новий сід кожну гру',
+    startDailyBtn: '📅 Щоденний сід',
+    startDailySub: 'Один лабіринт для всіх сьогодні',
+    startFetching: 'Визначаю дату…',
+    nicknameTitle: 'Введи свій нікнейм',
+    nicknamePlaceholder: 'Твій нікнейм',
+    nicknameHistory: 'Раніше використовані',
+    nicknameHistoryEmpty: 'Немає збережених нікнеймів',
+    nicknameStart: 'Почати',
+    lbTitle: '🏆 Таблиця рекордів',
+    lbEmpty: 'Записів поки немає.',
+    lbContinue: 'Продовжити →',
+    lbColRank: '#', lbColName: 'Гравець', lbColRound: 'Рд.', lbColScore: 'Очки', lbColDate: 'Дата',
+    lbTodayEmpty: 'Будь першим сьогодні!',
+    lbLoading: '…',
   }
 };
 
@@ -657,8 +804,38 @@ let invincible = false;
 let tiltAnimationFrame = null;
 let pendingPickup = null; // for swap modal
 
+// =================== PRNG (mulberry32) ===================
+let _prngState = 1;
+let _baseSeed = 1;
+function seedPRNG(seed) { _prngState = (seed >>> 0) || 1; _baseSeed = _prngState; }
+function deriveRoundSeed(round) {
+  // Mix baseSeed with round number deterministically.
+  // splitmix64-style avalanche to spread bits across all rounds.
+  let x = (_baseSeed + Math.imul(round, 0x9E3779B1)) >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x85EBCA6B) >>> 0;
+  x = Math.imul(x ^ (x >>> 13), 0xC2B2AE35) >>> 0;
+  return (x ^ (x >>> 16)) >>> 0;
+}
+function reseedForRound(round) {
+  _prngState = deriveRoundSeed(round) || 1;
+}
+function prng() {
+  _prngState = (_prngState + 0x6D2B79F5) >>> 0;
+  let t = Math.imul(_prngState ^ (_prngState >>> 15), 1 | _prngState);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function randInt(n) { return Math.floor(prng() * n); }
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // =================== UTILS ===================
-function randInt(n) { return Math.floor(Math.random() * n); }
 function manhattan(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
 function same(a, b) { return a && b && a.x === b.x && a.y === b.y; }
 function inBounds(x, y) { return x >= 0 && x < GRID && y >= 0 && y < GRID; }
@@ -996,8 +1173,8 @@ function roundSpec(r) {
   if (r >= 20) spec.keys = 2;
   if (r >= 16) spec.fog = true;
   if (r >= 17) spec.conveyor = 3;
-  if (r >= 7 && Math.random() < 0.4) spec.amulet = 1;
-  if (r >= 9 && Math.random() < 0.3) spec.restart = 1;
+  if (r >= 7 && prng() < 0.4) spec.amulet = 1;
+  if (r >= 9 && prng() < 0.3) spec.restart = 1;
 
   if (r === 10 || r === 20) {
     spec.boss = 1;
@@ -1015,6 +1192,10 @@ function roundSpec(r) {
 function setupRound(round) {
   const s = state;
 
+  // Reseed PRNG so world generation is deterministic per (baseSeed, round),
+  // independent of how many prng() calls happened during the previous round.
+  reseedForRound(round);
+
   const prevItems = new Set(s.seenItems);
   const prevEnemies = new Set(s.seenEnemies);
   const prevTiles = new Set(s.seenTiles);
@@ -1028,7 +1209,10 @@ function setupRound(round) {
   s.conveyorDirs = Array.from({length: GRID}, () => new Array(GRID).fill(null));
 
   let start;
-  if (round === 1 || !s.previousExitInfo) {
+  if (gameMode === 'daily' || round === 1 || !s.previousExitInfo) {
+    // Daily mode (or first round): pick a deterministic corner from PRNG.
+    // This makes daily seed truly identical across players regardless of
+    // which exit they reached on previous rounds.
     const corners = [{x:0,y:0},{x:9,y:0},{x:0,y:9},{x:9,y:9}];
     start = corners[randInt(4)];
   } else {
@@ -1047,8 +1231,8 @@ function setupRound(round) {
   const spec = roundSpec(round);
   s.fogOfWar = spec.fog;
   // Pac-man wraps — from round 3 onward
-  s.wrapHorizontal = round >= 3 && Math.random() < 0.30;
-  s.wrapVertical = round >= 3 && Math.random() < 0.30;
+  s.wrapHorizontal = round >= 3 && prng() < 0.30;
+  s.wrapVertical = round >= 3 && prng() < 0.30;
   if (s.wrapHorizontal || s.wrapVertical) { s.seenTiles.add('__wrap__'); }
 
   s.keysNeeded = spec.keys;
@@ -1084,8 +1268,8 @@ function setupRound(round) {
   for (let i = 0; i < spec.patrol; i++) {
     const pos = randomEmptyCell(c => manhattan(c, s.player) >= 5);
     if (pos) {
-      const horizontal = Math.random() < 0.5;
-      const dir = horizontal ? (Math.random() < 0.5 ? 'e' : 'w') : (Math.random() < 0.5 ? 'n' : 's');
+      const horizontal = prng() < 0.5;
+      const dir = horizontal ? (prng() < 0.5 ? 'e' : 'w') : (prng() < 0.5 ? 'n' : 's');
       s.enemies.push({ type: 'patrol', x: pos.x, y: pos.y, inv: null, frozen: 0, onMineId: null, dir: dir, axis: horizontal ? 'h' : 'v', startX: pos.x, startY: pos.y, skipNextTurn: false });
       s.seenEnemies.add('patrol');
     }
@@ -1149,7 +1333,7 @@ function setupRound(round) {
   }
   // Heart spawn: always on boss rounds, 20% chance otherwise
   const hasBossThisRound = spec.boss > 0;
-  const heartRoll = !s.player.hasHeart && (hasBossThisRound || Math.random() < 0.20);
+  const heartRoll = !s.player.hasHeart && (hasBossThisRound || prng() < 0.20);
   if (heartRoll && round >= 3) {
     const pos = randomEmptyCell(c => manhattan(c, s.player) >= 3);
     if (pos) { s.items.push({ type: 'heart', x: pos.x, y: pos.y }); s.seenItems.add('heart'); }
@@ -1902,8 +2086,8 @@ function enemyTurn() {
         return { x: nx, y: ny };
       };
       // Ensure dir matches axis (in case of weird state)
-      if (e.axis === 'h' && (e.dir === 'n' || e.dir === 's')) e.dir = Math.random() < 0.5 ? 'e' : 'w';
-      if (e.axis === 'v' && (e.dir === 'e' || e.dir === 'w')) e.dir = Math.random() < 0.5 ? 'n' : 's';
+      if (e.axis === 'h' && (e.dir === 'n' || e.dir === 's')) e.dir = prng() < 0.5 ? 'e' : 'w';
+      if (e.axis === 'v' && (e.dir === 'e' || e.dir === 'w')) e.dir = prng() < 0.5 ? 'n' : 's';
 
       next = tryStep(e.dir);
       if (!next) {
@@ -1969,7 +2153,7 @@ function enemyTurn() {
         options.push({ x: nx, y: ny });
       }
       if (options.length) {
-        next = options[Math.floor(Math.random() * options.length)];
+        next = options[randInt(options.length)];
       }
     }
 
@@ -2031,7 +2215,7 @@ function openShop() {
   const modal = document.getElementById('modal');
   document.getElementById('modalTitle').textContent = t('shopTitle', s.round);
   const pool = ['knife','shield','clock','tilde','crossbow','amulet','restart','random','mine','stealthmine','slot'];
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const shuffled = shuffleArray(pool);
   const choices = shuffled.slice(0, 3);
   const c = document.getElementById('modalContent');
   let html = `<div>${t('shopPrompt')}</div><div class="shop-choices">`;
@@ -2565,6 +2749,7 @@ function updateHUD() {
   document.getElementById('moves').textContent = state.moves;
   document.getElementById('round').textContent = state.round;
   document.getElementById('killed').textContent = state.killed;
+  document.getElementById('score').textContent = computeScore();
   updateStatusBar();
 }
 
@@ -2593,7 +2778,18 @@ function showMessage(text) {
   msgTimer = setTimeout(() => { el.textContent = ''; }, 2800);
   logEvent(text);
 }
-function showRestart() { document.getElementById('restartBtn').style.display = 'inline-block'; }
+function showRestart() {
+  document.getElementById('restartBtn').style.display = 'inline-block';
+  // Submit score and show leaderboard (non-blocking — player can close modal and hit restart)
+  const myGameMode = gameMode;
+  const myDeathTimestamp = ++_deathTimestamp;
+  lbSubmitScore().then(() => {
+    // Only show leaderboard if player hasn't restarted/abandoned in the meantime
+    if (myDeathTimestamp !== _deathTimestamp) return;
+    if (myGameMode) showLeaderboardModal(myGameMode, false, null);
+  });
+}
+let _deathTimestamp = 0;
 
 // =================== INFO MODAL ===================
 function openInfo() {
@@ -2819,9 +3015,380 @@ function applyLabels() {
   document.getElementById('lblMoves').textContent = t('moves');
   document.getElementById('lblRound').textContent = t('round');
   document.getElementById('lblKilled').textContent = t('killed');
+  document.getElementById('lblScore').textContent = t('score');
   document.getElementById('useBtn').textContent = t('use');
   document.getElementById('infoBtn').textContent = t('info');
   document.getElementById('restartBtn').textContent = t('newGame');
+}
+
+// =================== START SCREEN ===================
+function applyStartScreenLabels() {
+  const el = document.getElementById('startScreen');
+  if (!el) return;
+  document.getElementById('startTitle').textContent = t('title');
+  document.getElementById('btnRandomLabel').textContent = t('startRandomBtn');
+  document.getElementById('btnRandomSub').textContent = t('startRandomSub');
+  document.getElementById('btnDailyLabel').textContent = t('startDailyBtn');
+  document.getElementById('btnDailySub').textContent = t('startDailySub');
+}
+
+function showStartScreen() {
+  // Invalidate any in-flight leaderboard submission so it doesn't pop up
+  // a stale modal over the start screen.
+  _deathTimestamp++;
+  // Clear current-attempt highlight from any previous run
+  currentAttemptTs = 0;
+
+  // Force-close any leftover modals from previous game
+  const modal = document.getElementById('modal');
+  if (modal) modal.classList.remove('open');
+  const nickModal = document.getElementById('nicknameModal');
+  if (nickModal) nickModal.style.display = 'none';
+  lbModalActive = false;
+  pendingPickup = null;
+  pendingAction = null;
+
+  const ss = document.getElementById('startScreen');
+  ss.classList.remove('hidden');
+  document.getElementById('startLoading').textContent = '';
+  applyStartScreenLabels();
+  // Load today's top-3 for each mode
+  const rEl = document.getElementById('lbRandom');
+  const dEl = document.getElementById('lbDaily');
+  if (rEl) rEl.innerHTML = `<span class="lb-top3-loading">${t('lbLoading')}</span>`;
+  if (dEl) dEl.innerHTML = `<span class="lb-top3-loading">${t('lbLoading')}</span>`;
+  lbRefreshTop3('random', 'lbRandom');
+  lbRefreshTop3('daily', 'lbDaily');
+}
+
+function hideStartScreen() {
+  document.getElementById('startScreen').classList.add('hidden');
+}
+
+function getDailySeed() {
+  // Use device's local date. worldtimeapi proved unreliable, and device date
+  // is good enough since the seed is per-day anyway.
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+function startWithSeed(seed) {
+  // Defensive cleanup in case any modal or transient state is leftover
+  const modal = document.getElementById('modal');
+  if (modal) modal.classList.remove('open');
+  const nickModal = document.getElementById('nicknameModal');
+  if (nickModal) nickModal.style.display = 'none';
+  lbModalActive = false;
+  pendingPickup = null;
+  pendingAction = null;
+
+  seedPRNG(seed);
+  hideStartScreen();
+  newGame();
+}
+
+// =================== NICKNAME MANAGEMENT ===================
+function getNicknamesFromStorage() {
+  try {
+    const stored = localStorage.getItem('nicknames');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveNickname(nickname) {
+  if (!nickname || nickname.trim().length === 0) return;
+  const nickname_clean = nickname.trim();
+  const nicknames = getNicknamesFromStorage();
+  
+  // Remove duplicates (move to front)
+  const filtered = nicknames.filter(n => n !== nickname_clean);
+  const updated = [nickname_clean, ...filtered];
+  
+  // Keep max 10 nicknames
+  localStorage.setItem('nicknames', JSON.stringify(updated.slice(0, 10)));
+}
+
+function getLastNickname() {
+  const nicknames = getNicknamesFromStorage();
+  return nicknames.length > 0 ? nicknames[0] : '';
+}
+
+function showNicknameModal(onConfirm) {
+  const modal = document.getElementById('nicknameModal');
+  const input = document.getElementById('nicknameInput');
+  const startBtn = document.getElementById('nicknameStartBtn');
+  const dropdown = document.getElementById('nicknameDropdown');
+  const historyLabel = document.getElementById('nicknameHistoryLabel');
+  const historyEmpty = document.getElementById('nicknameHistoryEmpty');
+  
+  // Update labels
+  document.getElementById('nicknameModalTitle').textContent = t('nicknameTitle');
+  historyLabel.textContent = t('nicknameHistory');
+  historyEmpty.textContent = t('nicknameHistoryEmpty');
+  startBtn.textContent = t('nicknameStart');
+  input.placeholder = t('nicknamePlaceholder');
+  
+  // Set last nickname as default
+  const lastNick = getLastNickname();
+  input.value = lastNick;
+  
+  // Populate dropdown
+  const nicknames = getNicknamesFromStorage();
+  dropdown.innerHTML = '';
+  
+  if (nicknames.length === 0) {
+    dropdown.innerHTML = `<div style="padding: 12px; text-align: center; color: #999; font-size: 13px;">${t('nicknameHistoryEmpty')}</div>`;
+  } else {
+    nicknames.forEach(nick => {
+      const div = document.createElement('div');
+      div.textContent = nick;
+      if (nick === lastNick) div.classList.add('selected');
+      div.addEventListener('click', () => {
+        input.value = nick;
+        // Update selected state
+        dropdown.querySelectorAll('div').forEach(d => d.classList.remove('selected'));
+        div.classList.add('selected');
+        input.focus();
+      });
+      dropdown.appendChild(div);
+    });
+  }
+  
+  // Focus on input
+  input.focus();
+  input.select();
+  
+  // Show modal
+  modal.style.display = 'flex';
+  
+  // Handle confirm
+  const confirm_fn = () => {
+    const nickname = input.value.trim();
+    if (nickname.length > 0) {
+      saveNickname(nickname);
+      modal.style.display = 'none';
+      onConfirm(nickname);
+    }
+  };
+  
+  startBtn.onclick = confirm_fn;
+  input.onkeypress = (e) => {
+    if (e.key === 'Enter') confirm_fn();
+  };
+}
+
+// =================== LEADERBOARD ===================
+// Онлайн-лидерборд через Supabase REST API.
+// При недоступности сети / ошибках / таймауте — фоллбэк на localStorage,
+// чтобы игра не зависала и игрок мог продолжать.
+const LB_SUPABASE_URL = 'https://bmclmqmwomfqiejdtxuw.supabase.co';
+const LB_SUPABASE_KEY = 'sb_publishable_Qvu3clvmja8BYRJYRcH0xg_hueSmSiw';
+const LB_TABLE = 'leaderboard';
+const LB_TIMEOUT_MS = 3000;
+const LB_STORAGE_KEY = 'labyrinth_leaderboard_v1';
+const LB_MAX_LOCAL_ENTRIES = 500;
+
+let playerNickname = '';
+let gameMode = '';       // 'random' | 'daily'
+let lbModalActive = false; // блокирует закрытие лидерборда через X
+
+function computeScore() {
+  if (!state) return 0;
+  return state.round * 1000 + state.killed * 10 - state.moves;
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Format entry date+time in browser's local timezone.
+// Uses ts (epoch ms) when available, falls back to date string otherwise.
+function formatDateTime(entry) {
+  if (entry.ts) {
+    const d = new Date(entry.ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${day} ${hh}:${mm}`;
+  }
+  return entry.date || '';
+}
+
+// Helper: fetch with hard timeout. Rejects on timeout or network error.
+function fetchWithTimeout(url, options = {}, timeoutMs = LB_TIMEOUT_MS) {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), timeoutMs)
+    )
+  ]);
+}
+
+// Local fallback storage helpers
+function lbGetLocalEntries() {
+  try {
+    const raw = localStorage.getItem(LB_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+function lbSaveLocalEntry(entry) {
+  try {
+    const entries = lbGetLocalEntries();
+    entries.push(entry);
+    const trimmed = entries.sort((a, b) => b.score - a.score).slice(0, LB_MAX_LOCAL_ENTRIES);
+    localStorage.setItem(LB_STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {}
+}
+
+async function lbGetEntries() {
+  // Try Supabase first; on any failure — fall back to localStorage.
+  try {
+    // Pull today's entries for both modes, ordered by score desc.
+    // We grab top 200 to allow client-side filtering for top-3 / top-10 views.
+    const today = todayStr();
+    const url = `${LB_SUPABASE_URL}/rest/v1/${LB_TABLE}` +
+                `?select=mode,name,round,score,date,ts` +
+                `&date=eq.${encodeURIComponent(today)}` +
+                `&order=score.desc&limit=200`;
+    const res = await fetchWithTimeout(url, {
+      headers: {
+        'apikey': LB_SUPABASE_KEY,
+        'Authorization': 'Bearer ' + LB_SUPABASE_KEY
+      }
+    });
+    if (!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return lbGetLocalEntries();
+  }
+}
+
+let currentAttemptTs = 0;
+
+async function lbSubmitScore() {
+  if (!playerNickname || !gameMode) return;
+  const entry = {
+    mode: gameMode,
+    name: playerNickname,
+    round: state ? state.round : 0,
+    score: computeScore(),
+    date: todayStr(),
+    ts: Date.now()
+  };
+  currentAttemptTs = entry.ts;
+  // Always save locally for offline persistence
+  lbSaveLocalEntry(entry);
+  // Then try to sync to Supabase
+  try {
+    await fetchWithTimeout(`${LB_SUPABASE_URL}/rest/v1/${LB_TABLE}`, {
+      method: 'POST',
+      headers: {
+        'apikey': LB_SUPABASE_KEY,
+        'Authorization': 'Bearer ' + LB_SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(entry)
+    });
+  } catch {
+    // Network failure — record stays in localStorage, that's fine
+  }
+}
+
+async function lbRefreshTop3(mode, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  try {
+    const entries = await lbGetEntries();
+    const today = todayStr();
+    const top = entries
+      .filter(e => e.date === today && e.mode === mode)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+    if (!top.length) {
+      el.innerHTML = `<span style="opacity:0.65;font-size:11px">${t('lbTodayEmpty')}</span>`;
+      return;
+    }
+    const medals = ['🥇','🥈','🥉'];
+    el.innerHTML = top.map((e, i) =>
+      `<div class="lb-row">${medals[i]} <span class="lb-name">${escHtml(e.name)}</span>
+       <span class="lb-pts">R${e.round} · ${e.score}pts</span></div>`
+    ).join('');
+  } catch {
+    el.innerHTML = '<span style="opacity:0.5;font-size:11px">—</span>';
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showLeaderboardModal(mode, midGame, continueCallback) {
+  lbModalActive = true;
+  const modal = document.getElementById('modal');
+  document.getElementById('modalTitle').textContent = t('lbTitle');
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `<div style="color:#999;font-size:13px;padding:12px 0">${t('lbLoading')}</div>`;
+  modal.classList.add('open');
+
+  lbGetEntries().then(entries => {
+    const top = entries
+      .filter(e => e.mode === mode)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    let html = '';
+    if (!top.length) {
+      html += `<div class="lb-empty">${t('lbEmpty')}</div>`;
+    } else {
+      const medals = ['🥇','🥈','🥉'];
+      html += `<table class="lb-table">
+        <thead><tr>
+          <th>${t('lbColRank')}</th><th>${t('lbColName')}</th>
+          <th>${t('lbColRound')}</th><th>${t('lbColScore')}</th>
+          <th style="color:#aaa">${t('lbColDate')}</th>
+        </tr></thead><tbody>`;
+      top.forEach((e, i) => {
+        const isMe = e.ts && e.ts === currentAttemptTs;
+        html += `<tr${isMe ? ' class="lb-me"' : ''}>
+          <td>${medals[i] || (i+1)}</td>
+          <td><b>${escHtml(e.name)}</b></td>
+          <td>${e.round}</td>
+          <td><b>${e.score}</b></td>
+          <td style="color:#aaa;font-size:11px">${formatDateTime(e)}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+    }
+
+    if (midGame && continueCallback) {
+      html += `<button class="lb-continue" id="lbContinueBtn">${t('lbContinue')}</button>`;
+    }
+    c.innerHTML = html;
+
+    if (midGame && continueCallback) {
+      document.getElementById('lbContinueBtn').addEventListener('click', () => {
+        lbModalActive = false;
+        modal.classList.remove('open');
+        continueCallback();
+      });
+    } else {
+      // Game over — X allowed
+      lbModalActive = false;
+    }
+  }).catch(() => {
+    lbModalActive = false;
+    modal.classList.remove('open');
+    if (midGame && continueCallback) continueCallback();
+  });
 }
 
 // =================== INIT ===================
@@ -2842,6 +3409,8 @@ function init() {
   document.getElementById('useBtn').addEventListener('click', useItem);
   document.getElementById('infoBtn').addEventListener('click', openInfo);
   document.getElementById('modalClose').addEventListener('click', () => {
+    // Leaderboard mid-game: block close (must press Continue)
+    if (lbModalActive) return;
     // Swap modal (mandatory pickup) — block close
     if (pendingPickup) return;
     // Shop is active when modal is open during transitioning and pendingPickup is null
@@ -2853,6 +3422,7 @@ function init() {
   });
   document.getElementById('modal').addEventListener('click', (e) => {
     if (e.target.id !== 'modal') return;
+    if (lbModalActive) return;
     if (pendingPickup) return;
     // Clicking background while shop is open — also behave like skip
     if (state && state.transitioning && document.getElementById('modal').classList.contains('open')) {
@@ -2869,7 +3439,24 @@ function init() {
   document.getElementById('restartBtn').addEventListener('click', () => {
     document.getElementById('restartBtn').style.display = 'none';
     showMessage('');
-    newGame();
+    showStartScreen();
+  });
+
+  document.getElementById('btnRandom').addEventListener('click', () => {
+    showNicknameModal((nickname) => {
+      playerNickname = nickname;
+      gameMode = 'random';
+      startWithSeed(Date.now());
+    });
+  });
+
+  document.getElementById('btnDaily').addEventListener('click', () => {
+    const seed = getDailySeed();
+    showNicknameModal((nickname) => {
+      playerNickname = nickname;
+      gameMode = 'daily';
+      startWithSeed(seed);
+    });
   });
 
   bindKeyboard();
@@ -2901,7 +3488,7 @@ function init() {
     }
   }
 
-  newGame();
+  showStartScreen();
 }
 
 init();
