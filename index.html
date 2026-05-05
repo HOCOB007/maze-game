@@ -85,7 +85,7 @@
   .title-word.struck { text-decoration: line-through; text-decoration-color: #f39c12; text-decoration-thickness: 3px; }
   #restartBtn { background: #27ae60; color: #fff; border: none; padding: 10px 18px; font-size: 14px; margin-top: 4px; }
   #message { min-height: 20px; font-size: 13px; text-align: center; color: #c0392b; font-weight: 600; padding: 0 8px; }
-  #modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
+  #modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 300; }
   #modal.open { display: flex; }
   #modalBox { background: #fff; max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 10px; padding: 16px 18px; position: relative; }
   #modalBox h2 { margin: 0 0 10px; font-size: 18px; }
@@ -118,17 +118,33 @@
   @keyframes flash { 0% { background: #fff9c4; } 100% { background: #fff; } }
 
   /* ===== LEADERBOARD ===== */
-  .lb-top3 {
-    min-height: 36px; font-size: 11px; color: #333;
-    display: flex; flex-direction: column; gap: 2px;
-    margin-top: 6px; padding: 4px 8px;
-    background: rgba(255,255,255,0.55); border-radius: 8px;
-    line-height: 1.4;
+  .lb-top {
+    width: 100%; max-width: 320px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    box-sizing: border-box;
   }
-  .lb-top3-loading { color: rgba(255,255,255,0.6); font-size: 11px; }
-  .lb-top3 .lb-row { display: flex; gap: 5px; align-items: baseline; }
-  .lb-top3 .lb-name { font-weight: 700; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lb-top3 .lb-pts { color: #555; }
+  .lb-top:hover { background: #f9f9f9; border-color: #bbb; }
+  .lb-top:active { background: #f0f0f0; }
+  .lb-top-cols {
+    display: flex; gap: 12px;
+    font-size: 11px; color: #333; line-height: 1.4;
+  }
+  .lb-top-col {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .lb-top-col .lb-row { display: flex; gap: 4px; align-items: baseline; white-space: nowrap; overflow: hidden; }
+  .lb-top-col .lb-rank { color: #888; width: 16px; flex-shrink: 0; font-size: 10px; }
+  .lb-top-col .lb-name { font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .lb-top-col .lb-pts { color: #666; flex-shrink: 0; font-size: 10px; }
+  .lb-top-loading { color: #888; font-size: 11px; padding: 2px; }
+  .lb-top-empty { color: #aaa; font-size: 11px; padding: 2px; font-style: italic; text-align: center; }
+  .lb-top-hint { color: #999; font-size: 9px; text-align: center; margin-top: 3px; }
   .lb-table { width:100%; border-collapse:collapse; font-size:13px; margin-top: 2px; }
   .lb-table th { font-weight:700; border-bottom:2px solid #eee; padding:4px 3px; text-align:left; }
   .lb-table td { border-bottom:1px solid #f0f0f0; padding:5px 3px; }
@@ -146,7 +162,8 @@
     background: #f5f5f7;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    gap: 24px; z-index: 200; padding: 32px 20px;
+    gap: 12px; z-index: 200; padding: 32px 20px;
+    overflow-y: auto;
   }
   #startScreen.hidden { display: none; }
   #startScreen h1 { font-size: 28px; margin: 0; font-weight: 900; text-align: center; }
@@ -218,12 +235,13 @@
     <span id="btnRandomLabel">🎲 Full Random</span>
     <span class="start-btn-sub" id="btnRandomSub">New seed every game</span>
   </button>
-  <div class="lb-top3" id="lbRandom"><span class="lb-top3-loading">…</span></div>
+  <div class="lb-top" id="lbRandom"><div class="lb-top-loading">…</div></div>
+  <div style="height: 8px;"></div>
   <button class="start-btn" id="btnDaily">
     <span id="btnDailyLabel">📅 Daily Seed</span>
     <span class="start-btn-sub" id="btnDailySub">Same maze for everyone today</span>
   </button>
-  <div class="lb-top3" id="lbDaily"><span class="lb-top3-loading">…</span></div>
+  <div class="lb-top" id="lbDaily"><div class="lb-top-loading">…</div></div>
   <div id="startLoading"></div>
 </div>
 
@@ -399,6 +417,7 @@ const I18N = {
     lbContinue: 'Continue →',
     lbColRank: '#', lbColName: 'Player', lbColRound: 'Rnd', lbColScore: 'Score', lbColDate: 'Date',
     lbTodayEmpty: 'Be first today!',
+    lbTopTapHint: 'tap for full board',
     lbLoading: '…',
   },
   ru: {
@@ -539,6 +558,7 @@ const I18N = {
     lbContinue: 'Продолжить →',
     lbColRank: '#', lbColName: 'Игрок', lbColRound: 'Ур.', lbColScore: 'Очки', lbColDate: 'Дата',
     lbTodayEmpty: 'Будь первым сегодня!',
+    lbTopTapHint: 'тап — полный список',
     lbLoading: '…',
   },
   uk: {
@@ -679,6 +699,7 @@ const I18N = {
     lbContinue: 'Продовжити →',
     lbColRank: '#', lbColName: 'Гравець', lbColRound: 'Рд.', lbColScore: 'Очки', lbColDate: 'Дата',
     lbTodayEmpty: 'Будь першим сьогодні!',
+    lbTopTapHint: 'тап — повний список',
     lbLoading: '…',
   }
 };
@@ -1533,6 +1554,7 @@ function advanceMazeRegen() {
 function performPlayerMove(nx, ny, moveDir) {
   const s = state;
   const p = s.player;
+  const prevX = p.x, prevY = p.y;
 
   if (p.onMineId !== null) p.onMineId = null;
   p.x = nx; p.y = ny;
@@ -1549,6 +1571,11 @@ function performPlayerMove(nx, ny, moveDir) {
     if (!inBounds(tx, ty) || s.walls[p.y][p.x][slideDir]) break;
     if (s.enemies.some(e => e.x === tx && e.y === ty)) break;
     p.x = tx; p.y = ty;
+  }
+
+  // Player wind-streak trail (only if actually moved a cell)
+  if (prevX !== p.x || prevY !== p.y) {
+    addTrail(prevX, prevY, p.x, p.y, '#2874e7', 0);
   }
 
   if (handleLandOn(p)) return;
@@ -2044,7 +2071,7 @@ function enemyTurn() {
   if (s.gameOver) return;
   const p = s.player;
 
-  // Snipers shoot first (stationary)
+  // Snipers shoot first (stationary, instantaneous)
   for (const e of s.enemies) {
     if (e.type !== 'sniper') continue;
     if (e.frozen > 0) continue;
@@ -2054,142 +2081,176 @@ function enemyTurn() {
     }
   }
 
-  for (let i = s.enemies.length - 1; i >= 0; i--) {
-    const e = s.enemies[i];
-    if (!e) continue;
-    if (e.frozen > 0) { e.frozen--; continue; }
-    if (e.type === 'sniper') continue;
+  // Sort movers by distance from player descending (farthest first)
+  const movers = s.enemies
+    .map(e => ({ e, d: Math.abs(e.x - p.x) + Math.abs(e.y - p.y) }))
+    .sort((a, b) => b.d - a.d)
+    .map(entry => entry.e);
 
-    // Mud: if enemy is currently on mud, set skip for next turn; also skip if flagged
-    if (e.skipNextTurn) { e.skipNextTurn = false; showMessage(t('stuckInMudEnemy')); continue; }
+  // Cascade enemy moves with 333ms delay each, after a 333ms wait following the player.
+  s.transitioning = true;
+  const ENEMY_STEP_DELAY = 70;
+  const PLAYER_LEAD_DELAY = 70;
 
-    if (e.type === 'ghost') {
-      e.skipNext = !e.skipNext;
-      if (!e.skipNext) continue;
+  let cursor = 0;
+  function moveNext() {
+    if (s.gameOver) { s.transitioning = false; return; }
+    while (cursor < movers.length) {
+      const e = movers[cursor++];
+      if (!e || !s.enemies.includes(e)) continue; // killed during cascade
+      if (e.frozen > 0) { e.frozen--; continue; }
+      if (e.type === 'sniper') continue;
+      if (e.skipNextTurn) { e.skipNextTurn = false; showMessage(t('stuckInMudEnemy')); continue; }
+      if (e.type === 'ghost') {
+        e.skipNext = !e.skipNext;
+        if (!e.skipNext) continue;
+      }
+      doEnemyStep(e);
+      render(); renderInventory(); updateHUD();
+      if (s.gameOver) { s.transitioning = false; return; }
+      // Schedule next mover with delay
+      setTimeout(moveNext, ENEMY_STEP_DELAY);
+      return;
     }
-
-    // Rational item use
-    tryEnemyUseItem(e);
-
-    let next = null;
-    if (e.type === 'patrol') {
-      const tryStep = (dir) => {
-        const def = DIRS[dir];
-        let nx = e.x + def.dx, ny = e.y + def.dy;
-        if (!inBounds(nx, ny)) return null; // Patrol doesn't use wrap
-        if (s.walls[e.y][e.x][dir]) return null;
-        if (s.tiles[ny][nx] === 'pit') return null;
-        if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) return null;
-        // Radius check — patrol stays within 5 cells of start along its axis
-        if (e.axis === 'h' && Math.abs(nx - e.startX) > 3) return null;
-        if (e.axis === 'v' && Math.abs(ny - e.startY) > 3) return null;
-        return { x: nx, y: ny };
-      };
-      // Ensure dir matches axis (in case of weird state)
-      if (e.axis === 'h' && (e.dir === 'n' || e.dir === 's')) e.dir = prng() < 0.5 ? 'e' : 'w';
-      if (e.axis === 'v' && (e.dir === 'e' || e.dir === 'w')) e.dir = prng() < 0.5 ? 'n' : 's';
-
-      next = tryStep(e.dir);
-      if (!next) {
-        // Try the opposite direction along same axis
-        e.dir = DIRS[e.dir].opp;
-        next = tryStep(e.dir);
-      }
-    } else if (e.type === 'ghost') {
-      const blockedByOthers = s.enemies.filter(x => x !== e).map(x => ({x: x.x, y: x.y}));
-      next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, { ignoreWalls: true, blockedCells: blockedByOthers });
-    } else if (e.type === 'regular' || e.type === 'boss') {
-      const blockedByOthers = s.enemies.filter(x => x !== e).map(x => ({x: x.x, y: x.y}));
-      next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, { avoidPits: true, avoidMines: true, blockedCells: blockedByOthers, useTeleport: true });
-
-      // Tilde usage: only if direct path blocked and breaking wall helps
-      if (!next && e.inv === 'tilde') {
-        const dx = p.x - e.x, dy = p.y - e.y;
-        let preferDir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n');
-        if (s.walls[e.y][e.x][preferDir]) {
-          const def = DIRS[preferDir];
-          const nx = e.x + def.dx, ny = e.y + def.dy;
-          if (inBounds(nx, ny)) {
-            s.walls[e.y][e.x][preferDir] = false;
-            s.walls[ny][nx][def.opp] = false;
-            e.inv = null;
-            next = { x: nx, y: ny };
-            showMessage(t('enemyBrokeWall'));
-          }
-        }
-      }
-
-      // Random: only if cannot reach player at all
-      if (!next && e.inv === 'random') {
-        e.inv = null;
-        regenerateMaze();
-        showMessage(t('enemyUsedRandom'));
-        // Try again after regen
-        next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, { avoidPits: true, avoidMines: true });
-      }
-    }
-
-    // If no path found — enemy must still move (pick any valid neighbor)
-    if (!next) {
-      const options = [];
-      for (const d of DIR_KEYS) {
-        const def = DIRS[d];
-        let nx = e.x + def.dx, ny = e.y + def.dy;
-        // Check walls (ghost ignores)
-        const canPass = e.type === 'ghost' || !s.walls[e.y][e.x][d];
-        if (!canPass) continue;
-        if (!inBounds(nx, ny)) {
-          const wrapped = wrapCoords(e.x, e.y, d);
-          if (!wrapped) continue;
-          nx = wrapped.x; ny = wrapped.y;
-        }
-        // Avoid pits and visible mines for non-ghost (but allow if nothing else)
-        if (e.type !== 'ghost') {
-          if (s.tiles[ny][nx] === 'pit') continue;
-          if (s.mines.some(m => m.x === nx && m.y === ny && !m.stealth)) continue;
-        }
-        // Avoid stepping onto another enemy
-        if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) continue;
-        options.push({ x: nx, y: ny });
-      }
-      if (options.length) {
-        next = options[randInt(options.length)];
-      }
-    }
-
-    if (!next) continue;
-
-    if (e.onMineId !== null) e.onMineId = null;
-    const fromX = e.x, fromY = e.y;
-    e.x = next.x; e.y = next.y;
-
-    // Ice slide for enemies (ghost doesn't slide)
-    if (e.type !== 'ghost' && s.tiles[e.y][e.x] === 'ice') {
-      const dx = e.x - fromX, dy = e.y - fromY;
-      let slideDir = null;
-      if (dx > 0) slideDir = 'e';
-      else if (dx < 0) slideDir = 'w';
-      else if (dy > 0) slideDir = 's';
-      else if (dy < 0) slideDir = 'n';
-      let iceIter = 0;
-      while (slideDir && s.tiles[e.y][e.x] === 'ice' && iceIter < 12) {
-        iceIter++;
-        const def = DIRS[slideDir];
-        const tx = e.x + def.dx, ty = e.y + def.dy;
-        if (!inBounds(tx, ty) || s.walls[e.y][e.x][slideDir]) break;
-        if (s.enemies.some(x => x !== e && x.x === tx && x.y === ty)) break;
-        if (tx === s.player.x && ty === s.player.y) break;
-        e.x = tx; e.y = ty;
-      }
-    }
-
-    checkTeleport(e);
-    if (enemyStepOnto(e)) continue;
-    // Mud effect
-    if (s.tiles[e.y][e.x] === 'mud') e.skipNextTurn = true;
-    if (enemyCollidesWithPlayer(e, {x: fromX, y: fromY})) { if (s.gameOver) return; continue; }
+    // All moves done
+    s.transitioning = false;
+    render(); renderInventory(); updateHUD();
   }
+
+  setTimeout(moveNext, PLAYER_LEAD_DELAY);
 }
+
+// Performs the actual movement decision and execution for one enemy.
+// Extracted from the original enemyTurn loop so it can be called from the cascade.
+function doEnemyStep(e) {
+  const s = state;
+  const p = s.player;
+
+  // Rational item use
+  tryEnemyUseItem(e);
+
+  let next = null;
+  if (e.type === 'patrol') {
+    const tryStep = (dir) => {
+      const def = DIRS[dir];
+      let nx = e.x + def.dx, ny = e.y + def.dy;
+      if (!inBounds(nx, ny)) return null;
+      if (s.walls[e.y][e.x][dir]) return null;
+      if (s.tiles[ny][nx] === 'pit') return null;
+      if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) return null;
+      if (e.axis === 'h' && Math.abs(nx - e.startX) > 3) return null;
+      if (e.axis === 'v' && Math.abs(ny - e.startY) > 3) return null;
+      return { x: nx, y: ny };
+    };
+    if (e.axis === 'h' && (e.dir === 'n' || e.dir === 's')) e.dir = prng() < 0.5 ? 'e' : 'w';
+    if (e.axis === 'v' && (e.dir === 'e' || e.dir === 'w')) e.dir = prng() < 0.5 ? 'n' : 's';
+    next = tryStep(e.dir);
+    if (!next) {
+      e.dir = DIRS[e.dir].opp;
+      next = tryStep(e.dir);
+    }
+  } else {
+    // BFS-based pursuit (regular, ghost, boss)
+    const blockedSet = [];
+    for (const o of s.enemies) if (o !== e) blockedSet.push({ x: o.x, y: o.y });
+    const ignoreWalls = e.type === 'ghost';
+    next = bfsNext(
+      { x: e.x, y: e.y },
+      { x: p.x, y: p.y },
+      s.walls,
+      { ignoreWalls, blockedCells: blockedSet, useTeleport: e.type !== 'ghost', avoidPits: e.type !== 'boss', avoidVisibleMines: true }
+    );
+
+    // Tilde: break a wall toward player if blocked
+    if (!next && (e.type === 'regular' || e.type === 'boss') && e.inv === 'tilde') {
+      const dx = p.x - e.x, dy = p.y - e.y;
+      const preferDir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n');
+      if (s.walls[e.y][e.x][preferDir]) {
+        const def = DIRS[preferDir];
+        const nx = e.x + def.dx, ny = e.y + def.dy;
+        if (inBounds(nx, ny)) {
+          s.walls[e.y][e.x][preferDir] = false;
+          s.walls[ny][nx][def.opp] = false;
+          e.inv = null;
+          next = { x: nx, y: ny };
+          showMessage(t('enemyBrokeWall'));
+        }
+      }
+    }
+    // Random regen if still stuck
+    if (!next && (e.type === 'regular' || e.type === 'boss') && e.inv === 'random') {
+      e.inv = null;
+      regenerateMaze();
+      showMessage(t('enemyUsedRandom'));
+      next = bfsNext({x:e.x, y:e.y}, {x:p.x, y:p.y}, s.walls, { avoidPits: true, avoidVisibleMines: true });
+    }
+  }
+
+  // If no path found — enemy must still move (pick any valid neighbor)
+  if (!next) {
+    const options = [];
+    for (const d of DIR_KEYS) {
+      const def = DIRS[d];
+      let nx = e.x + def.dx, ny = e.y + def.dy;
+      const canPass = e.type === 'ghost' || !s.walls[e.y][e.x][d];
+      if (!canPass) continue;
+      if (!inBounds(nx, ny)) {
+        const wrapped = wrapCoords(e.x, e.y, d);
+        if (!wrapped) continue;
+        nx = wrapped.x; ny = wrapped.y;
+      }
+      if (e.type !== 'ghost') {
+        if (s.tiles[ny][nx] === 'pit') continue;
+        if (s.mines.some(m => m.x === nx && m.y === ny && !m.stealth)) continue;
+      }
+      if (s.enemies.some(x => x !== e && x.x === nx && x.y === ny)) continue;
+      options.push({ x: nx, y: ny });
+    }
+    if (options.length) {
+      next = options[randInt(options.length)];
+    }
+  }
+
+  if (!next) return;
+
+  if (e.onMineId !== null) e.onMineId = null;
+  const fromX = e.x, fromY = e.y;
+  e.x = next.x; e.y = next.y;
+
+  // Wind-streak trail for this enemy (no delay — it animates as soon as it moves)
+  const trailColor = e.type === 'boss' ? '#fff'
+    : e.type === 'sniper' ? '#27ae60'
+    : e.type === 'patrol' ? '#e67e22'
+    : e.type === 'ghost' ? '#bdc3c7'
+    : '#e74c3c';
+  addTrail(fromX, fromY, e.x, e.y, trailColor, 0);
+
+  // Ice slide for enemies (ghost doesn't slide)
+  if (e.type !== 'ghost' && s.tiles[e.y][e.x] === 'ice') {
+    const dx = e.x - fromX, dy = e.y - fromY;
+    let slideDir = null;
+    if (dx > 0) slideDir = 'e';
+    else if (dx < 0) slideDir = 'w';
+    else if (dy > 0) slideDir = 's';
+    else if (dy < 0) slideDir = 'n';
+    let iceIter = 0;
+    while (slideDir && s.tiles[e.y][e.x] === 'ice' && iceIter < 12) {
+      iceIter++;
+      const def = DIRS[slideDir];
+      const tx = e.x + def.dx, ty = e.y + def.dy;
+      if (!inBounds(tx, ty) || s.walls[e.y][e.x][slideDir]) break;
+      if (s.enemies.some(x => x !== e && x.x === tx && x.y === ty)) break;
+      if (tx === s.player.x && ty === s.player.y) break;
+      e.x = tx; e.y = ty;
+    }
+  }
+
+  checkTeleport(e);
+  if (enemyStepOnto(e)) return;
+  if (s.tiles[e.y][e.x] === 'mud') e.skipNextTurn = true;
+  if (enemyCollidesWithPlayer(e, { x: fromX, y: fromY })) { return; }
+}
+
 
 function tryEnemyUseItem(e) {
   const s = state;
@@ -2338,6 +2399,90 @@ function closeSwap(didPickup) {
 // =================== RENDER ===================
 let canvas, ctx;
 
+// =================== MOTION TRAILS ===================
+// Visual "wind streak" trail rendered behind a moving entity for ~280ms after a step.
+// Trails are scheduled with start delays so enemy moves cascade from far → near.
+const motionTrails = [];
+const TRAIL_DURATION = 450; // ms
+let _trailRafScheduled = false;
+
+function addTrail(fromX, fromY, toX, toY, color, delay) {
+  motionTrails.push({
+    fromX, fromY, toX, toY, color,
+    startTime: performance.now() + (delay || 0),
+    duration: TRAIL_DURATION
+  });
+  scheduleTrailLoop();
+}
+
+function scheduleTrailLoop() {
+  if (_trailRafScheduled) return;
+  _trailRafScheduled = true;
+  requestAnimationFrame(trailTick);
+}
+
+function trailTick() {
+  _trailRafScheduled = false;
+  const now = performance.now();
+  // Drop expired trails
+  for (let i = motionTrails.length - 1; i >= 0; i--) {
+    const t = motionTrails[i];
+    if (now > t.startTime + t.duration) motionTrails.splice(i, 1);
+  }
+  if (motionTrails.length > 0) {
+    if (!state || !state.gameOver) render();
+    scheduleTrailLoop();
+  }
+}
+
+function drawMotionTrails() {
+  const now = performance.now();
+  for (const t of motionTrails) {
+    if (now < t.startTime) continue;
+    const age = (now - t.startTime) / t.duration;
+    if (age < 0 || age > 1) continue;
+    const fadeOut = 1 - age;
+    const sx = PAD + t.fromX * CELL + CELL/2;
+    const sy = PAD + t.fromY * CELL + CELL/2;
+    const dx = PAD + t.toX * CELL + CELL/2;
+    const dy = PAD + t.toY * CELL + CELL/2;
+    // Direction unit vector
+    const vx = dx - sx, vy = dy - sy;
+    const len = Math.hypot(vx, vy) || 1;
+    const ux = vx / len, uy = vy / len;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = t.color;
+    // 9 streaks for a fuller, wider wind effect
+    const offsets = [-16, -12, -8, -4, 0, 4, 8, 12, 16];
+    for (let i = 0; i < offsets.length; i++) {
+      const offset = offsets[i];
+      // Perpendicular offset
+      const px = -uy * offset;
+      const py = ux * offset;
+      // Center streak is brightest and thickest
+      const dist = Math.abs(offset);
+      const intensity = 1 - dist / 18; // 1 → 0.11
+      ctx.globalAlpha = fadeOut * intensity * 0.9;
+      ctx.lineWidth = 1.5 + intensity * 3.5;
+      // Head is anchored at the unit's CURRENT position (it "enters" the unit).
+      const headX = dx + px;
+      const headY = dy + py;
+      // Tail starts from the previous cell, then retracts toward the head as the
+      // trail ages — so the streak shortens into the unit instead of leaving it behind.
+      const tailFrac = 1 - age; // 1 (full) → 0 (collapsed into head)
+      const tailX = sx + (dx - sx) * (1 - tailFrac) + px;
+      const tailY = sy + (dy - sy) * (1 - tailFrac) + py;
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(headX, headY);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function render() {
   const s = state;
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -2418,6 +2563,9 @@ function render() {
       ctx.fill(); ctx.stroke();
     }
   }
+
+  // Motion trails (wind streaks) behind moving entities — drawn under items/enemies/player
+  drawMotionTrails();
 
   // Mines
   for (const m of s.mines) {
@@ -3055,10 +3203,10 @@ function showStartScreen() {
   // Load today's top-3 for each mode
   const rEl = document.getElementById('lbRandom');
   const dEl = document.getElementById('lbDaily');
-  if (rEl) rEl.innerHTML = `<span class="lb-top3-loading">${t('lbLoading')}</span>`;
-  if (dEl) dEl.innerHTML = `<span class="lb-top3-loading">${t('lbLoading')}</span>`;
-  lbRefreshTop3('random', 'lbRandom');
-  lbRefreshTop3('daily', 'lbDaily');
+  if (rEl) rEl.innerHTML = `<div class="lb-top-loading">${t('lbLoading')}</div>`;
+  if (dEl) dEl.innerHTML = `<div class="lb-top-loading">${t('lbLoading')}</div>`;
+  lbRefreshTop10('random', 'lbRandom');
+  lbRefreshTop10('daily', 'lbDaily');
 }
 
 function hideStartScreen() {
@@ -3121,25 +3269,26 @@ function showNicknameModal(onConfirm) {
   const startBtn = document.getElementById('nicknameStartBtn');
   const dropdown = document.getElementById('nicknameDropdown');
   const historyLabel = document.getElementById('nicknameHistoryLabel');
-  const historyEmpty = document.getElementById('nicknameHistoryEmpty');
-  
-  // Update labels
+
+  // Update labels (no reference to nicknameHistoryEmpty — it gets recreated below)
   document.getElementById('nicknameModalTitle').textContent = t('nicknameTitle');
-  historyLabel.textContent = t('nicknameHistory');
-  historyEmpty.textContent = t('nicknameHistoryEmpty');
+  if (historyLabel) historyLabel.textContent = t('nicknameHistory');
   startBtn.textContent = t('nicknameStart');
   input.placeholder = t('nicknamePlaceholder');
-  
+
   // Set last nickname as default
   const lastNick = getLastNickname();
   input.value = lastNick;
-  
-  // Populate dropdown
+
+  // Populate dropdown — fully reset its content each time
   const nicknames = getNicknamesFromStorage();
   dropdown.innerHTML = '';
-  
+
   if (nicknames.length === 0) {
-    dropdown.innerHTML = `<div style="padding: 12px; text-align: center; color: #999; font-size: 13px;">${t('nicknameHistoryEmpty')}</div>`;
+    const emptyDiv = document.createElement('div');
+    emptyDiv.style.cssText = 'padding: 12px; text-align: center; color: #999; font-size: 13px;';
+    emptyDiv.textContent = t('nicknameHistoryEmpty');
+    dropdown.appendChild(emptyDiv);
   } else {
     nicknames.forEach(nick => {
       const div = document.createElement('div');
@@ -3147,7 +3296,6 @@ function showNicknameModal(onConfirm) {
       if (nick === lastNick) div.classList.add('selected');
       div.addEventListener('click', () => {
         input.value = nick;
-        // Update selected state
         dropdown.querySelectorAll('div').forEach(d => d.classList.remove('selected'));
         div.classList.add('selected');
         input.focus();
@@ -3155,14 +3303,14 @@ function showNicknameModal(onConfirm) {
       dropdown.appendChild(div);
     });
   }
-  
+
   // Focus on input
   input.focus();
   input.select();
-  
+
   // Show modal
   modal.style.display = 'flex';
-  
+
   // Handle confirm
   const confirm_fn = () => {
     const nickname = input.value.trim();
@@ -3172,7 +3320,7 @@ function showNicknameModal(onConfirm) {
       onConfirm(nickname);
     }
   };
-  
+
   startBtn.onclick = confirm_fn;
   input.onkeypress = (e) => {
     if (e.key === 'Enter') confirm_fn();
@@ -3256,7 +3404,7 @@ async function lbGetEntries() {
     const url = `${LB_SUPABASE_URL}/rest/v1/${LB_TABLE}` +
                 `?select=mode,name,round,score,date,ts` +
                 `&date=eq.${encodeURIComponent(today)}` +
-                `&order=score.desc&limit=200`;
+                `&order=score.desc&limit=500`;
     const res = await fetchWithTimeout(url, {
       headers: {
         'apikey': LB_SUPABASE_KEY,
@@ -3303,7 +3451,38 @@ async function lbSubmitScore() {
   }
 }
 
-async function lbRefreshTop3(mode, elId) {
+// Secret clear: wipe local entries for this mode and DELETE all entries
+// for this mode on Supabase. Best-effort, ignores network errors.
+async function clearLeaderboard(mode) {
+  // Local clear for this mode
+  try {
+    const entries = lbGetLocalEntries().filter(e => e.mode !== mode);
+    localStorage.setItem(LB_STORAGE_KEY, JSON.stringify(entries));
+  } catch {}
+  // Server delete for this mode
+  let serverOk = false;
+  try {
+    const res = await fetchWithTimeout(
+      `${LB_SUPABASE_URL}/rest/v1/${LB_TABLE}?mode=eq.${encodeURIComponent(mode)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey': LB_SUPABASE_KEY,
+          'Authorization': 'Bearer ' + LB_SUPABASE_KEY,
+          'Prefer': 'return=minimal'
+        }
+      }
+    );
+    serverOk = res && res.ok;
+  } catch {}
+  // Refresh both displays
+  lbRefreshTop10('random', 'lbRandom');
+  lbRefreshTop10('daily', 'lbDaily');
+  // Visible feedback so user knows the cheat fired
+  showMessage(serverOk ? `🧹 Лидерборд (${mode}) очищен` : `🧹 Локально очищен (сервер недоступен)`);
+}
+
+async function lbRefreshTop10(mode, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
   try {
@@ -3312,18 +3491,29 @@ async function lbRefreshTop3(mode, elId) {
     const top = entries
       .filter(e => e.date === today && e.mode === mode)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+      .slice(0, 10);
     if (!top.length) {
-      el.innerHTML = `<span style="opacity:0.65;font-size:11px">${t('lbTodayEmpty')}</span>`;
+      el.innerHTML = `<div class="lb-top-empty">${t('lbTodayEmpty')}</div>
+                      <div class="lb-top-hint">${t('lbTopTapHint')}</div>`;
       return;
     }
     const medals = ['🥇','🥈','🥉'];
-    el.innerHTML = top.map((e, i) =>
-      `<div class="lb-row">${medals[i]} <span class="lb-name">${escHtml(e.name)}</span>
-       <span class="lb-pts">R${e.round} · ${e.score}pts</span></div>`
-    ).join('');
+    const renderRow = (e, i) => {
+      const rank = medals[i] || (i+1) + '.';
+      return `<div class="lb-row"><span class="lb-rank">${rank}</span>` +
+             `<span class="lb-name">${escHtml(e.name)}</span>` +
+             `<span class="lb-pts">R${e.round}·${e.score}</span></div>`;
+    };
+    const left = top.slice(0, 5).map(renderRow).join('');
+    const right = top.slice(5, 10).map((e, i) => renderRow(e, i + 5)).join('');
+    el.innerHTML =
+      `<div class="lb-top-cols">
+         <div class="lb-top-col">${left}</div>
+         <div class="lb-top-col">${right || '<span style="color:#bbb;font-size:10px">—</span>'}</div>
+       </div>
+       <div class="lb-top-hint">${t('lbTopTapHint')}</div>`;
   } catch {
-    el.innerHTML = '<span style="opacity:0.5;font-size:11px">—</span>';
+    el.innerHTML = '<div class="lb-top-empty">—</div>';
   }
 }
 
@@ -3334,7 +3524,25 @@ function escHtml(s) {
 function showLeaderboardModal(mode, midGame, continueCallback) {
   lbModalActive = true;
   const modal = document.getElementById('modal');
-  document.getElementById('modalTitle').textContent = t('lbTitle');
+  const titleEl = document.getElementById('modalTitle');
+  titleEl.textContent = t('lbTitle');
+  // Hidden cheat: 20 taps on the title within 4-second windows clears the leaderboard
+  // for the currently-shown mode. Use a single onclick (overwrites prior handler each open).
+  let titleTapCount = 0;
+  let titleTapTime = 0;
+  titleEl.style.cursor = 'pointer';
+  titleEl.onclick = () => {
+    const now = Date.now();
+    if (now - titleTapTime > 4000) titleTapCount = 0;
+    titleTapCount++;
+    titleTapTime = now;
+    if (titleTapCount >= 20) {
+      titleTapCount = 0;
+      modal.classList.remove('open');
+      lbModalActive = false;
+      clearLeaderboard(mode);
+    }
+  };
   const c = document.getElementById('modalContent');
   c.innerHTML = `<div style="color:#999;font-size:13px;padding:12px 0">${t('lbLoading')}</div>`;
   modal.classList.add('open');
@@ -3343,7 +3551,7 @@ function showLeaderboardModal(mode, midGame, continueCallback) {
     const top = entries
       .filter(e => e.mode === mode)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
+      .slice(0, 100);
 
     let html = '';
     if (!top.length) {
@@ -3439,6 +3647,19 @@ function init() {
   document.getElementById('restartBtn').addEventListener('click', () => {
     document.getElementById('restartBtn').style.display = 'none';
     showMessage('');
+    // Force-close anything that might block clicks on the start screen
+    const modal = document.getElementById('modal');
+    if (modal) modal.classList.remove('open');
+    const nickModal = document.getElementById('nicknameModal');
+    if (nickModal) nickModal.style.display = 'none';
+    lbModalActive = false;
+    pendingPickup = null;
+    pendingAction = null;
+    // Reset old state flags so any pending input doesn't think the game is still running/ending
+    if (state) {
+      state.gameOver = false;
+      state.transitioning = false;
+    }
     showStartScreen();
   });
 
@@ -3458,6 +3679,18 @@ function init() {
       startWithSeed(seed);
     });
   });
+
+  // Tap on a leaderboard block — open full leaderboard for that mode.
+  const handleLbTap = (mode, elId) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      currentAttemptTs = 0; // no highlight when opening from menu
+      showLeaderboardModal(mode, false, null);
+    });
+  };
+  handleLbTap('random', 'lbRandom');
+  handleLbTap('daily', 'lbDaily');
 
   bindKeyboard();
   bindTouch();
